@@ -55,7 +55,7 @@ Built to **learn React from scratch**, practise modern tooling, and explore LLM+
 
 ```bash
 # 1. Clone
-git clone https://github.com/your-handle/travel-bot && cd travel-bot
+git clone https://github.com/6ba3i/travel-bot && cd travel-bot
 
 # 2. Install deps
 npm install
