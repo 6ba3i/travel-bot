@@ -1,54 +1,68 @@
-# React + TypeScript + Vite
+# ✈️ Travel-Bot — AI-Powered Itinerary Planner
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+A conversational web app that turns **any travel question** into a clickable, hour-by-hour plan.  
+Built to **learn React from scratch**, practise modern tooling, and explore LLM+API orchestration.
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## 1. What It Does 🌍
 
-## Expanding the ESLint configuration
+| Ask the bot… | It will… | Powered by |
+|--------------|----------|------------|
+| *“Best cafés with Wi-Fi in Kyoto?”* | Return a ranked list (distance, opening hours, Google Maps links) | OpenTripMap |
+| *“Plan 3 days in Lisbon under €400”* | Build a budget-aware itinerary split by day & neighbourhood | Mistral + custom planner |
+| *“Where should I go in May for hiking + street food?”* | Suggest destinations, climate notes & sample costs | Weather & price datasets |
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+---
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
-```
+## 2. Stack at a Glance 🛠️
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+| Layer | Tech |
+|-------|------|
+| **Frontend** | React 18, Vite, TypeScript, Tailwind |
+| **State** | Zustand |
+| **Auth** | Firebase Auth (Email/Password + Google) |
+| **AI** | Mistral Small (`/v1/chat/completions`) |
+| **Data APIs** | OpenTripMap (POIs) · Navitia (transit) · OpenWeather |
+| **Server proxy** | Node 18 + Express (Edge-ready) |
+| **Persistence (roadmap)** | Supabase (Postgres + pgvector) |
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+---
 
-export default tseslint.config({
-  plugins: {
-    // Add the react-x and react-dom plugins
-    'react-x': reactX,
-    'react-dom': reactDom,
-  },
-  rules: {
-    // other rules...
-    // Enable its recommended typescript rules
-    ...reactX.configs['recommended-typescript'].rules,
-    ...reactDom.configs.recommended.rules,
-  },
-})
-```
+## 3. Current Features ✅
+
+- **Auth flow** — glass-morphism login/sign-up, password reset, Google OAuth  
+- **Dynamic background** — parallax grid following cursor (pure CSS)  
+- **Chat UI** — streaming responses, markdown render, mobile-first layout  
+- **LLM plumbing** — proxy injects system prompt & executes tool calls  
+- **Project structure** — clean `src/` folders (`components/`, `pages/`, `store/`, `types/`)
+
+---
+
+## 4. Roadmap 🗺️
+
+| Milestone | Status |
+|-----------|--------|
+| Live POI search via `searchPlaces` tool | 🔜 |
+| Greedy itinerary packing algorithm | 🔜 |
+| Trip persistence + “Resume last trip” | 🔜 |
+| PWA install + offline cache | 🔜 |
+| Stripe checkout for premium exports | 💡 idea |
+
+---
+
+## 5. Local Setup ⚡
+
+```bash
+# 1. Clone
+git clone https://github.com/your-handle/travel-bot && cd travel-bot
+
+# 2. Install deps
+npm install
+
+# 3. Fill .env  (see .env.example)
+cp .env.example .env
+# → add Firebase + Mistral + OpenTripMap keys
+
+# 4. Run dev servers (Vite + Express proxy)
+npm run dev
