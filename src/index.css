@@ -1,0 +1,18 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* --- dynamic grid background --- */
+.bg-grid{
+    --size: 100px;                     /* grid square size */
+    --line: #3e3d4b;   /* thin white lines */
+    --shift-x: 0px;
+    --shift-y: 0px;
+    background-color:#0d1117;         /* dark base */
+    background-image:
+      linear-gradient(to right, var(--line) 1px, transparent 1px),
+      linear-gradient(to bottom, var(--line) 1px, transparent 1px);
+    background-size: var(--size) var(--size);
+    background-position: var(--shift-x) var(--shift-y);
+    transition: background-position 0.1s linear;
+  }
+  
