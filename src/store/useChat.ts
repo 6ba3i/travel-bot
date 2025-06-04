@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { persist } from 'zustand/middleware';
 import { chat } from '../lib/api';
 
 interface Msg {
@@ -6,71 +7,85 @@ interface Msg {
   content: string;
 }
 
-export const useChatStore = create<{
+interface Conversation {
+  id: string;
+  title: string;
   messages: Msg[];
+}
+
+interface ChatState {
+  conversations: Conversation[];
+  activeId: string;
   loading: boolean;
   send: (content: string) => Promise<void>;
-}>(set => ({
-  messages: [],
-  loading: false,
-  send: async content => {
-    // Debug logs
-    console.log('Sending message:', content);
-    
-    // Set loading to true when sending
-    set({ loading: true });
-    
-    // 1 — push the user message
-    const userMsg: Msg = { role: 'user', content };
-    set(s => ({ messages: [...s.messages, userMsg] }));
+  newConversation: () => void;
+  selectConversation: (id: string) => void;
+}
 
-    try {
-      // 2 — call the proxy → Mistral
-      console.log('Calling API with messages:', [...useChatStore.getState().messages, userMsg]);
-      const data = await chat([...useChatStore.getState().messages, userMsg]);
-      console.log('API response:', data);
+export const useChatStore = create(
+  persist<ChatState>(
+    (set, get) => {
+      const firstId = Date.now().toString();
+      return {
+        conversations: [
+          { id: firstId, title: 'New chat', messages: [] }
+        ],
+        activeId: firstId,
+        loading: false,
+      send: async (content: string) => {
+        const state = get();
+        const conv = state.conversations.find(c => c.id === state.activeId);
+        if (!conv) return;
 
-      // Check if we have a valid response with choices
-      if (!data || !data.choices || !data.choices[0]) {
-        console.error('Invalid response format from API:', data);
-        throw new Error('Invalid response from chat API');
-      }
+        set({ loading: true });
+        conv.messages.push({ role: 'user', content });
+        set({ conversations: [...state.conversations] });
 
-      // 3 — pull the assistant's text from .content
-      const assistantContent = data.choices[0].message?.content;
-      console.log('Assistant content:', assistantContent);
-      
-      if (typeof assistantContent !== 'string') {
-        console.error('Invalid or missing content in response:', data.choices[0]);
-        throw new Error('Missing content in assistant response');
-      }
-      
-      // Check if the response starts with "I'm a travel-only assistant" and remove it if so
-      let cleanedContent = assistantContent;
-      if (cleanedContent.startsWith("I'm a travel-only assistant")) {
-        const contentParts = cleanedContent.split(".");
-        if (contentParts.length > 1) {
-          // Remove the first sentence
-          cleanedContent = contentParts.slice(1).join(".").trim();
+        try {
+          const data = await chat(conv.messages);
+
+          if (!data || !data.choices || !data.choices[0]) {
+            throw new Error('Invalid response from chat API');
+          }
+
+          let assistantContent = data.choices[0].message?.content;
+          if (typeof assistantContent !== 'string') {
+            throw new Error('Missing content in assistant response');
+          }
+
+          if (assistantContent.startsWith("I'm a travel-only assistant")) {
+            const parts = assistantContent.split('.');
+            if (parts.length > 1) {
+              assistantContent = parts.slice(1).join('.').trim();
+            }
+          }
+
+          conv.messages.push({ role: 'assistant', content: assistantContent });
+          if (conv.title === 'New chat') {
+            conv.title = content.slice(0, 20);
+          }
+
+          set({ conversations: [...state.conversations], loading: false });
+        } catch (error) {
+          conv.messages.push({
+            role: 'assistant',
+            content: 'Sorry, I encountered an error processing your request. Please try again.'
+          });
+          set({ conversations: [...state.conversations], loading: false });
         }
+      },
+      newConversation: () => {
+        const id = Date.now().toString();
+        set(state => ({
+          conversations: [...state.conversations, { id, title: 'New chat', messages: [] }],
+          activeId: id
+        }));
+      },
+      selectConversation: (id: string) => {
+        set({ activeId: id });
       }
-
-      const assistant: Msg = {
-        role: 'assistant',
-        content: cleanedContent
-      };
-
-      // 4 — push the assistant reply
-      set(s => ({ messages: [...s.messages, assistant], loading: false }));
-    } catch (error) {
-      console.error('Error in chat:', error);
-      
-      // Add an error message to the chat
-      const errorMsg: Msg = {
-        role: 'assistant',
-        content: 'Sorry, I encountered an error processing your request. Please try again.'
-      };
-      set(s => ({ messages: [...s.messages, errorMsg], loading: false }));
-    }
-  }
-}));
+    };
+    },
+    { name: 'travel-chat' }
+  )
+);
