@@ -4,6 +4,9 @@ import express   from 'express';
 import cors      from 'cors';
 import fetch     from 'node-fetch';             // npm i node-fetch@3 if on Node ≤18
 import { searchFlights } from './src/lib/flightApi.ts';  // pricing wrapper
+import { searchHotels } from './src/lib/amadeus.js';
+import { searchPOI }    from './src/lib/openTrip.js';
+import { getWeather }   from './src/lib/weather.js';
 
 const app = express();
 app.use(cors());
@@ -15,7 +18,7 @@ console.log('🚀 Server initialization complete');
 const SYSTEM_PROMPT = `
 You are TravelBot, a helpful travel assistant.
 Allowed topics: flights, lodging, weather, itineraries, food, attractions.
-Allowed tools: searchFlights.
+Allowed tools: searchFlights, searchHotels, searchPOI, getWeather.
 
 Your responses should:
 - Be conversational and friendly
@@ -37,24 +40,70 @@ If the user asks anything non-travel, politely redirect them to travel topics.
 
 /*───────────────────  tool schema  ─────────────────*/
 // Mistral's API expects a different format for tools - let's fix it
-const tools = [{
-  function: {  // Changed from "name" to wrapping in "function" object
-    name: 'searchFlights',
-    description: 'Search for flight prices and booking links',
-    parameters: {
-      type: 'object',
-      properties: {
-        origin     : { type:'string', description:'IATA, e.g. JFK' },
-        destination: { type:'string', description:'IATA, e.g. LAX' },
-        date       : { type:'string', format:'date', description:'Outbound date YYYY-MM-DD' },
-        returnDate : { type:'string', format:'date', description:'Return date YYYY-MM-DD for round trips' },
-        cabin      : { type:'string', enum:['economy','business'], default:'economy' },
-        tripType   : { type:'string', enum:['one_way','round_trip'], default:'one_way' }
-      },
-      required: ['origin','destination','date']
+const tools = [
+  {
+    function: {
+      name: 'searchFlights',
+      description: 'Search for flight prices and booking links',
+      parameters: {
+        type: 'object',
+        properties: {
+          origin     : { type:'string', description:'IATA, e.g. JFK' },
+          destination: { type:'string', description:'IATA, e.g. LAX' },
+          date       : { type:'string', format:'date', description:'Outbound date YYYY-MM-DD' },
+          returnDate : { type:'string', format:'date', description:'Return date YYYY-MM-DD for round trips' },
+          cabin      : { type:'string', enum:['economy','business'], default:'economy' },
+          tripType   : { type:'string', enum:['one_way','round_trip'], default:'one_way' }
+        },
+        required: ['origin','destination','date']
+      }
+    }
+  },
+  {
+    function: {
+      name: 'searchHotels',
+      description: 'Find hotel offers in a city',
+      parameters: {
+        type: 'object',
+        properties: {
+          cityCode: { type:'string', description:'IATA city code, e.g. PAR' },
+          checkIn : { type:'string', format:'date', description:'Check-in date YYYY-MM-DD' },
+          nights  : { type:'integer', default:1, description:'Number of nights' }
+        },
+        required: ['cityCode','checkIn']
+      }
+    }
+  },
+  {
+    function: {
+      name: 'searchPOI',
+      description: 'Search points of interest near a location',
+      parameters: {
+        type: 'object',
+        properties: {
+          location: { type:'string', description:'City name or "lat,lon"' },
+          kinds   : { type:'string', description:'POI categories comma separated' },
+          limit   : { type:'integer', default:10 }
+        },
+        required: ['location']
+      }
+    }
+  },
+  {
+    function: {
+      name: 'getWeather',
+      description: 'Get 7 day weather forecast for coordinates',
+      parameters: {
+        type: 'object',
+        properties: {
+          lat: { type:'number', description:'Latitude' },
+          lon: { type:'number', description:'Longitude' }
+        },
+        required: ['lat','lon']
+      }
     }
   }
-}];
+];
 
 
 /*───────────────────  route  ───────────────────────*/
@@ -115,64 +164,44 @@ app.post('/api/chat', async (req, res) => {
     
     if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
       console.log('🛠️ Tool call detected:', JSON.stringify(choice.message.tool_calls, null, 2));
-      
+
       const toolCall = choice.message.tool_calls[0];
-      if (toolCall?.function?.name === 'searchFlights') {  // Updated to match Mistral's format
-        console.log('✈️ SearchFlights tool call confirmed');
-        
-        try {
-          // Extract the arguments from the tool call
-          const args = JSON.parse(toolCall.function.arguments);  // Updated to use function.arguments
-          console.log('🔢 Processing flight search with args:', args);
-          
-          // Call the searchFlights function
-          console.log('🔄 Calling searchFlights function...');
+      const args = JSON.parse(toolCall.function.arguments || '{}');
+      const name = toolCall.function.name;
+
+      try {
+        if (name === 'searchFlights') {
+          console.log('✈️ Running searchFlights with', args);
           const flights = await searchFlights(args);
-          console.log('✅ Flight search results:', JSON.stringify(flights, null, 2));
-          
-          // Check if we have valid flight data
-          if (!flights?.data) {
-            console.log('⚠️ No flight.data property in response');
-          }
-          
-          if (!flights?.data || flights.data.length === 0) {
-            console.log('⚠️ No flights found');
-            return res.json({
-              choices: [{
-                message: {
-                  role: 'assistant',
-                  content: 'Certainly! I searched for flights but couldn\'t find any matching your criteria. Would you like to try different dates or airports?'
-                }
-              }]
-            });
-          }
-          
-          // Format the flights and return the response
-          console.log('📝 Formatting flight results...');
-          const formattedContent = formatFlights(flights, args.tripType);
-          console.log('📤 Sending formatted response:', formattedContent);
-          
-          return res.json({
-            choices: [{
-              message: {
-                role: 'assistant',
-                content: formattedContent
-              }
-            }]
-          });
-        } catch (e) {
-          console.error('❌ Error processing flight search:', e);
-          return res.json({
-            choices: [{
-              message: {
-                role: 'assistant',
-                content: 'Certainly! I tried to search for flights, but the service is temporarily unavailable. Would you like to try again later or explore other travel options?'
-              }
-            }]
-          });
+          const formatted = formatFlights(flights, args.tripType);
+          return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
         }
-      } else {
-        console.log('⚠️ Tool call is not searchFlights:', toolCall?.function?.name);
+
+        if (name === 'searchHotels') {
+          console.log('🏨 Running searchHotels with', args);
+          const hotels = await searchHotels(args);
+          const formatted = formatHotels(hotels);
+          return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
+        }
+
+        if (name === 'searchPOI') {
+          console.log('📍 Running searchPOI with', args);
+          const pois = await searchPOI(args);
+          const formatted = formatPOI(pois);
+          return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
+        }
+
+        if (name === 'getWeather') {
+          console.log('🌤️ Running getWeather with', args);
+          const w = await getWeather(args);
+          const formatted = formatWeather(w);
+          return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
+        }
+
+        console.log('⚠️ Unknown tool name:', name);
+      } catch (e) {
+        console.error('❌ Error processing tool call:', e);
+        return res.json({ choices: [{ message: { role: 'assistant', content: 'Sorry, something went wrong executing that tool.' } }] });
       }
     }
 
@@ -233,6 +262,42 @@ function formatFlights(json, tripType = 'one_way') {
   
   console.log('Final formatted response:', formattedResponse);
   return formattedResponse;
+}
+
+function formatHotels(json) {
+  if (!json?.data?.length) return 'Certainly! No hotels found.';
+  let out = 'Certainly! Here are some hotel options:\n\n';
+  json.data.slice(0, 3).forEach((h, idx) => {
+    const offer = h.offers?.[0] || {};
+    const price = offer.price?.total || 'N/A';
+    const link = offer.url || offer.bookingLink || '';
+    out += `${idx + 1}. **${h.hotel?.name || 'Hotel'}** - $${price}\n`;
+    if (link) out += `   • [Book hotel](${link})\n`;
+    out += '\n';
+  });
+  return out;
+}
+
+function formatPOI(list) {
+  if (!list?.length) return 'Certainly! No attractions found.';
+  let out = 'Certainly! Here are some attractions:\n\n';
+  list.slice(0, 5).forEach((p, idx) => {
+    out += `${idx + 1}. [${p.name}](${p.link})\n`;
+  });
+  return out;
+}
+
+function formatWeather(json) {
+  if (!json?.daily?.length) return 'Weather data unavailable.';
+  let out = 'Certainly! Here is the upcoming forecast:\n\n';
+  json.daily.slice(0, 3).forEach(d => {
+    const date = new Date(d.dt * 1000).toISOString().slice(0, 10);
+    const desc = d.weather?.[0]?.description || '';
+    const min = Math.round(d.temp?.min);
+    const max = Math.round(d.temp?.max);
+    out += `${date}: ${desc}, ${min}°C–${max}°C\n`;
+  });
+  return out;
 }
 
 /*───────────────────  boot  ───────────────────────*/
