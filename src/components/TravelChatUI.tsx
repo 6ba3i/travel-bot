@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, FC } from 'react';
-import { SendHorizontal, Loader2, Plus } from 'lucide-react';
+import { SendHorizontal, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useChatStore } from '../store/useChat';    // ← corrected hook path
 import FlightCard from './FlightCard';
 
@@ -37,7 +37,7 @@ const TypeWriter: FC<TypeWriterProps> = ({ text, speed = 10, onComplete }) => {
 
 
 export default function TravelChatUI() {
-  const { conversations, activeId, send, newConversation, selectConversation } = useChatStore();
+  const { conversations, activeId, send, newConversation, selectConversation, deleteConversation } = useChatStore();
   const active = conversations.find(c => c.id === activeId)!;
   const messages = active.messages;
   const isFirstMessage = messages.length === 0;
@@ -151,13 +151,20 @@ export default function TravelChatUI() {
         </button>
         <div className="flex-1 overflow-y-auto space-y-1">
           {conversations.map(c => (
-            <button
-              key={c.id}
-              onClick={() => selectConversation(c.id)}
-              className={`w-full text-left p-2 rounded ${c.id === activeId ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
-            >
-              {c.title || 'New chat'}
-            </button>
+            <div key={c.id} className="flex items-center">
+              <button
+                onClick={() => selectConversation(c.id)}
+                className={`flex-1 text-left p-2 rounded ${c.id === activeId ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+              >
+                {c.title || 'New chat'}
+              </button>
+              <button
+                onClick={(e) => { e.stopPropagation(); deleteConversation(c.id); }}
+                className="ml-1 p-1 text-gray-400 hover:text-red-500"
+              >
+                <Trash2 className="h-4 w-4" />
+              </button>
+            </div>
           ))}
         </div>
       </aside>
