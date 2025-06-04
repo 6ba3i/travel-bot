@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, FC } from 'react';
-import { SendHorizontal, Loader2 } from 'lucide-react';
+import { SendHorizontal, Loader2, Plus } from 'lucide-react';
 import { useChatStore } from '../store/useChat';    // ← corrected hook path
 
 // Sample travel prompts for initial screen
@@ -60,10 +60,12 @@ const FlightCard: FC<FlightCardProps> = ({ price, airline, bookingLink }) => (
 );
 
 export default function TravelChatUI() {
-  const { messages, send } = useChatStore();
+  const { conversations, activeId, send, newConversation, selectConversation } = useChatStore();
+  const active = conversations.find(c => c.id === activeId)!;
+  const messages = active.messages;
+  const isFirstMessage = messages.length === 0;
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [isFirstMessage, setIsFirstMessage] = useState(messages.length === 0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Scroll chat to bottom on new messages
@@ -76,7 +78,6 @@ export default function TravelChatUI() {
     e.preventDefault();
     if (!input.trim()) return;
 
-    setIsFirstMessage(false);
     setIsTyping(true);
     await send(input);
     setInput('');
@@ -113,9 +114,28 @@ export default function TravelChatUI() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-gray-900">
-      {/* Chat history */}
-      <div className="flex-1 overflow-y-auto p-4">
+    <div className="flex h-screen bg-gray-900">
+      <aside className="w-56 border-r border-gray-700 bg-gray-800 text-white p-4 flex flex-col">
+        <button
+          onClick={newConversation}
+          className="flex items-center mb-4 p-2 rounded bg-indigo-600 hover:bg-indigo-700"
+        >
+          <Plus className="h-4 w-4 mr-2" /> New chat
+        </button>
+        <div className="flex-1 overflow-y-auto space-y-1">
+          {conversations.map(c => (
+            <button
+              key={c.id}
+              onClick={() => selectConversation(c.id)}
+              className={`w-full text-left p-2 rounded ${c.id === activeId ? 'bg-gray-700' : 'hover:bg-gray-700'}`}
+            >
+              {c.title || 'New chat'}
+            </button>
+          ))}
+        </div>
+      </aside>
+      <div className="flex flex-col flex-1">
+        <div className="flex-1 overflow-y-auto p-4">
         {isFirstMessage ? (
           <div className="h-full flex flex-col items-center justify-center">
             <h1 className="text-4xl font-bold mb-8 text-white">TravelBot</h1>
@@ -206,5 +226,6 @@ export default function TravelChatUI() {
         </button>
       </form>
     </div>
+  </div>
   );
 }
