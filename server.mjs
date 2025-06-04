@@ -3,7 +3,7 @@ import 'dotenv/config';
 import express   from 'express';
 import cors      from 'cors';
 import fetch     from 'node-fetch';             // npm i node-fetch@3 if on Node ≤18
-import { searchFlights } from './src/lib/flightApi.js';  // pricing wrapper
+import { searchFlights } from './src/lib/flightApi.ts';  // pricing wrapper
 
 const app = express();
 app.use(cors());
