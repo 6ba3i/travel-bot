@@ -190,12 +190,12 @@ export default function TravelChatUI() {
               return (
                 <div
                   key={i}
-                  className={`mb-4 flex ${
+                  className={`mb-2 flex ${
                     msg.role === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
                   <div
-                    className={`max-w-[75%] p-4 rounded-2xl ${
+                    className={`max-w-[75%] p-4 rounded-xl ${
                       msg.role === 'user'
                         ? 'bg-indigo-600 text-white'
                         : 'bg-gray-800 text-white'
@@ -225,8 +225,8 @@ export default function TravelChatUI() {
             })}
 
             {isTyping && messages[messages.length - 1]?.role !== 'assistant' && (
-              <div className="flex mb-4">
-                <div className="bg-gray-800 text-white p-4 rounded-2xl flex items-center">
+              <div className="flex mb-2">
+                <div className="bg-gray-800 text-white p-4 rounded-xl flex items-center">
                   <Loader2 className="animate-spin h-4 w-4 mr-2" />
                   <span>TravelBot is typing...</span>
                 </div>
