@@ -20,6 +20,7 @@ interface ChatState {
   send: (content: string) => Promise<void>;
   newConversation: () => void;
   selectConversation: (id: string) => void;
+  deleteConversation: (id: string) => void;
 }
 
 export const useChatStore = create(
@@ -83,6 +84,23 @@ export const useChatStore = create(
       },
       selectConversation: (id: string) => {
         set({ activeId: id });
+      },
+      deleteConversation: (id: string) => {
+        set(state => {
+          const remaining = state.conversations.filter(c => c.id !== id);
+          let activeId = state.activeId;
+          if (activeId === id) {
+            if (remaining.length === 0) {
+              const newId = Date.now().toString();
+              return {
+                conversations: [{ id: newId, title: 'New chat', messages: [] }],
+                activeId: newId
+              };
+            }
+            activeId = remaining[0].id;
+          }
+          return { conversations: remaining, activeId };
+        });
       }
     };
     },
