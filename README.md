@@ -1,7 +1,7 @@
 # ✈️ Travel-Bot — AI-Powered Itinerary Planner
 
 A conversational web app that turns **any travel question** into a clickable, hour-by-hour plan.  
-Built to **learn React from scratch**, practise modern tooling, and explore LLM+API orchestration.
+Built to **learn React from scratch**, practice modern tooling, and explore LLM+API orchestration.
 
 ---
 
