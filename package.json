@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"nodemon server.mjs\"",
+    "dev": "concurrently \"vite\" \"TS_NODE_TRANSPILE_ONLY=true TS_NODE_PROJECT=tsconfig.node.json nodemon --loader ts-node/esm server.mjs\"",
     "build": "vite build",
     "preview": "vite preview"
   },
@@ -41,6 +41,7 @@
     "nodemon": "^3.1.10",
     "postcss": "^8.5.3",
     "tailwindcss": "^3.4.17",
+    "ts-node": "^10.9.2",
     "typescript": "~5.7.2",
     "typescript-eslint": "^8.26.1",
     "vite": "^6.3.1"
