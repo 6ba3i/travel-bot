@@ -66,3 +66,7 @@ cp .env.example .env
 
 # 4. Run dev servers (Vite + Express proxy)
 npm run dev
+
+# If you see "http proxy error" messages, your environment
+# might have HTTP(S)_PROXY variables set. Disable them with:
+#   npm run dev:noproxy
