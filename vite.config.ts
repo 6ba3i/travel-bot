@@ -8,9 +8,8 @@ export default defineConfig({
     proxy: {
       // if your Express route is app.post('/chat', …)
       '/api': {
-        target: 'http://localhost:3000',   // ← use your server port
+        target: 'http://localhost:8787',   // ← use your server port
         changeOrigin: true,
-        rewrite: (path) => path.replace(/^\/api/, ''),  
         secure: false,
       },
     },
