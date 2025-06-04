@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, FC } from 'react';
 import { SendHorizontal, Loader2, Plus } from 'lucide-react';
 import { useChatStore } from '../store/useChat';    // ← corrected hook path
+import FlightCard from './FlightCard';
 
 // Sample travel prompts for initial screen
 const SAMPLE_PROMPTS = [
@@ -34,30 +35,6 @@ const TypeWriter: FC<TypeWriterProps> = ({ text, speed = 10, onComplete }) => {
   return <div>{displayText}</div>;
 };
 
-// Flight result card component
-interface FlightCardProps {
-  price: string;
-  airline: string;
-  bookingLink: string;
-}
-const FlightCard: FC<FlightCardProps> = ({ price, airline, bookingLink }) => (
-  <div className="my-2 p-4 bg-white/10 border border-gray-700 rounded-xl hover:bg-white/20 transition-all">
-    <div className="flex justify-between items-center">
-      <div className="flex flex-col">
-        <span className="text-xl font-bold text-white">${price}</span>
-        <span className="text-sm text-gray-300">{airline}</span>
-      </div>
-      <a
-        href={bookingLink}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
-      >
-        Book Now
-      </a>
-    </div>
-  </div>
-);
 
 export default function TravelChatUI() {
   const { conversations, activeId, send, newConversation, selectConversation } = useChatStore();
@@ -90,26 +67,76 @@ export default function TravelChatUI() {
   };
 
   // Parse assistant message for flights
+  interface Flight {
+    price: number;
+    airline: string;
+    departureTime: string;
+    arrivalTime: string;
+    duration: string;
+    stops: number;
+    bookingLink: string;
+    returnInfo?: {
+      departureTime: string;
+      arrivalTime: string;
+      duration: string;
+      stops: number;
+    };
+  }
+
   const processMessage = (msg: { role: string; content: string }) => {
     if (msg.role !== 'assistant') return { content: msg.content };
 
-    const flights: FlightCardProps[] = [];
-    const regex = /\*\*\$(\d+)\*\* – ([^|]+)\| \[Book\]\((.*?)\)/g;
-    let match;
-    while ((match = regex.exec(msg.content))) {
-      flights.push({
-        price: match[1],
-        airline: match[2].trim(),
-        bookingLink: match[3]
-      });
+    if (!msg.content.includes('[Book flight](')) return { content: msg.content };
+
+    const flights: Flight[] = [];
+    const blocks = msg.content.split(/\n\n/).filter(b => b.includes('[Book flight]('));
+    for (const block of blocks) {
+      try {
+        const priceMatch = block.match(/\*\*\$(\d+(?:\.\d+)?)\*\*/);
+        const airlineMatch = block.match(/\*\*\$\d+(?:\.\d+)?\*\* - ([^\n]+)/);
+        const outboundMatch = block.match(/• Outbound: ([^(]+)/);
+        const linkMatch = block.match(/\[Book flight\]\(([^)]+)\)/);
+        if (!priceMatch || !airlineMatch || !outboundMatch || !linkMatch) continue;
+
+        const [dep, arr] = outboundMatch[1].split(' → ');
+        const durationMatch = block.match(/\(([^,]+),/);
+        const stopsMatch = block.match(/(Nonstop|\d+ stop(?:s)?)/);
+
+        const flight: Flight = {
+          price: parseFloat(priceMatch[1]),
+          airline: airlineMatch[1].trim(),
+          departureTime: dep.trim(),
+          arrivalTime: arr.trim(),
+          duration: durationMatch ? durationMatch[1].trim() : 'N/A',
+          stops: stopsMatch ? (stopsMatch[1] === 'Nonstop' ? 0 : parseInt(stopsMatch[1])) : 0,
+          bookingLink: linkMatch[1]
+        };
+
+        const returnMatch = block.match(/• Return: ([^(]+)/);
+        if (returnMatch) {
+          const [rd, ra] = returnMatch[1].split(' → ');
+          const allDur = [...block.matchAll(/\(([^,]+),/g)];
+          const allStops = [...block.matchAll(/(Nonstop|\d+ stop(?:s)?)/g)];
+          if (allDur.length > 1 && allStops.length > 1) {
+            flight.returnInfo = {
+              departureTime: rd.trim(),
+              arrivalTime: ra.trim(),
+              duration: allDur[1][1].trim(),
+              stops: allStops[1][1] === 'Nonstop' ? 0 : parseInt(allStops[1][1])
+            };
+          }
+        }
+
+        flights.push(flight);
+      } catch (e) {
+        console.error('parse error', e);
+      }
     }
 
     if (flights.length) {
-      return {
-        content: 'Certainly! Here are a few flights I found:',
-        flights
-      };
+      return { content: 'Certainly! Here are a few flights I found:', flights };
     }
+
     return { content: msg.content };
   };
 
@@ -184,7 +211,12 @@ export default function TravelChatUI() {
                         key={idx}
                         price={f.price}
                         airline={f.airline}
+                        departureTime={f.departureTime}
+                        arrivalTime={f.arrivalTime}
+                        duration={f.duration}
+                        stops={f.stops}
                         bookingLink={f.bookingLink}
+                        returnInfo={f.returnInfo}
                       />
                     ))}
                   </div>
