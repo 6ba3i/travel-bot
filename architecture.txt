@@ -1,0 +1,50 @@
+travel-bot/
+│
+├── .env                  # Firebase + API keys (never committed)
+├── .gitignore
+├── index.html            # Vite’s single entry
+├── package.json
+├── vite.config.ts        # dev-server proxy → /api, build flags
+├── tailwind.config.js    # grid scan globs, theme
+├── postcss.config.js
+├── tsconfig.json
+├── tsconfig.node.json
+├── tsconfig.app.json
+├── server.mjs            # Express proxy → Mistral + tools
+│
+└── src/
+    ├── assets/
+    │   └── react.svg
+    │
+    ├── components/               # UI atoms (stateless)
+    │   ├── BackgroundGrid.tsx    # CSS grid + parallax
+    │   ├── ChatWindow.tsx        # message list
+    │   ├── GoogleBtn.tsx         # OAuth button (custom SVG)
+    │   ├── InputBar.tsx          # textarea + send
+    │   └── TextInput.tsx         # glassy input field
+    │
+    ├── contexts/
+    │   └── AuthContext.tsx       # Firebase user provider
+    │
+    ├── lib/                      # low-level helpers & SDK init
+    │   ├── api.ts                # POST /api/chat wrapper
+    │   └── firebase.ts           # modular SDK init (Auth)
+    │
+    ├── pages/                    # routed screens
+    │   ├── AuthLayout.tsx        # frosted card wrapper
+    │   ├── ChatLayout.tsx        # protected chat UI
+    │   ├── Forgot.tsx            # reset password flow
+    │   ├── Login.tsx             # email / pwd sign-in
+    │   └── SignUp.tsx            # create account
+    │
+    ├── store/                    # global state (Zustand)
+    │   └── useChats.tsx          # messages array + send()
+    │
+    ├── types/
+    │   └── vanta-waves.d.ts      # TS stub for Vanta import
+    │
+    ├── main.tsx                  # boots <Router/>
+    ├── Router.tsx                # public + protected routes
+    ├── index.css                 # Tailwind + custom .bg-grid rule
+    ├── App.tsx                   # (unused placeholder from Vite)
+    └── App.css                   # (unused placeholder)
