@@ -18,6 +18,10 @@ travel-bot/
     │
     ├── components/               # UI atoms (stateless)
     │   ├── BackgroundGrid.tsx    # CSS grid + parallax
+    │   ├── GoogleBtn.tsx         # OAuth button (custom SVG)
+    │   ├── ResultCard.tsx        # flight or POI display card
+    │   ├── TextInput.tsx         # glassy input field
+    │   └── TravelChatUI.tsx      # main chat interface
     │   ├── FlightCard.tsx        # formatted flight result
     │   ├── GoogleBtn.tsx         # OAuth button (custom SVG)
     │   ├── TravelChatUI.tsx      # chat interface
