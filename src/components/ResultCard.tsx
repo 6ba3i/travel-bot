@@ -8,7 +8,7 @@ export type FlightResult = {
   arrivalTime: string;
   duration: string;
   stops: number;
-  bookingLink: string;
+  bookingLink?: string;
   returnInfo?: {
     departureTime: string;
     arrivalTime: string;
@@ -36,7 +36,9 @@ export default function ResultCard({ result }: Props) {
     const stopsText = stops === 0 ? 'Nonstop' : `${stops} stop${stops > 1 ? 's' : ''}`;
 
     const handleClick = () => {
-      window.open(bookingLink, '_blank');
+      if (bookingLink) {
+        window.open(bookingLink, '_blank');
+      }
     };
 
     return (
@@ -76,11 +78,13 @@ export default function ResultCard({ result }: Props) {
           </div>
         )}
 
-        <div className="mt-3 text-center">
-          <button className="text-sm text-blue-600 hover:underline" onClick={handleClick}>
-            Book now
-          </button>
-        </div>
+        {bookingLink && (
+          <div className="mt-3 text-center">
+            <button className="text-sm text-blue-600 hover:underline" onClick={handleClick}>
+              Book now
+            </button>
+          </div>
+        )}
       </div>
     );
   }
