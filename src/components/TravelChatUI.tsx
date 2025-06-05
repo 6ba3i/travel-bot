@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, FC } from 'react';
 import { SendHorizontal, Loader2, Plus, Trash2 } from 'lucide-react';
 import { useChatStore } from '../store/useChat';    // ← corrected hook path
-import FlightCard from './FlightCard';
+import ResultCard, { FlightResult, PoiResult, Result } from './ResultCard';
 
 // Sample travel prompts for initial screen
 const SAMPLE_PROMPTS = [
@@ -66,75 +66,85 @@ export default function TravelChatUI() {
     setInput(prompt);
   };
 
-  // Parse assistant message for flights
-  interface Flight {
-    price: number;
-    airline: string;
-    departureTime: string;
-    arrivalTime: string;
-    duration: string;
-    stops: number;
-    bookingLink: string;
-    returnInfo?: {
-      departureTime: string;
-      arrivalTime: string;
-      duration: string;
-      stops: number;
-    };
-  }
-
-  const processMessage = (msg: { role: string; content: string }) => {
+  // Parse assistant messages for structured results
+  const processMessage = (msg: { role: string; content: string }): { content: string; results?: Result[] } => {
     if (msg.role !== 'assistant') return { content: msg.content };
 
-    if (!msg.content.includes('[Book flight](')) return { content: msg.content };
-
-    const flights: Flight[] = [];
-    const blocks = msg.content.split(/\n\n/).filter(b => b.includes('[Book flight]('));
-    for (const block of blocks) {
+    // ----- JSON block -----
+    const jsonMatch = msg.content.match(/```json\n([\s\S]+?)\n```/i);
+    if (jsonMatch) {
       try {
-        const priceMatch = block.match(/\*\*\$(\d+(?:\.\d+)?)\*\*/);
-        const airlineMatch = block.match(/\*\*\$\d+(?:\.\d+)?\*\* - ([^\n]+)/);
-        const outboundMatch = block.match(/• Outbound: ([^(]+)/);
-        const linkMatch = block.match(/\[Book flight\]\(([^)]+)\)/);
-        if (!priceMatch || !airlineMatch || !outboundMatch || !linkMatch) continue;
-
-        const [dep, arr] = outboundMatch[1].split(' → ');
-        const durationMatch = block.match(/\(([^,]+),/);
-        const stopsMatch = block.match(/(Nonstop|\d+ stop(?:s)?)/);
-
-        const flight: Flight = {
-          price: parseFloat(priceMatch[1]),
-          airline: airlineMatch[1].trim(),
-          departureTime: dep.trim(),
-          arrivalTime: arr.trim(),
-          duration: durationMatch ? durationMatch[1].trim() : 'N/A',
-          stops: stopsMatch ? (stopsMatch[1] === 'Nonstop' ? 0 : parseInt(stopsMatch[1])) : 0,
-          bookingLink: linkMatch[1]
-        };
-
-        const returnMatch = block.match(/• Return: ([^(]+)/);
-        if (returnMatch) {
-          const [rd, ra] = returnMatch[1].split(' → ');
-          const allDur = [...block.matchAll(/\(([^,]+),/g)];
-          const allStops = [...block.matchAll(/(Nonstop|\d+ stop(?:s)?)/g)];
-          if (allDur.length > 1 && allStops.length > 1) {
-            flight.returnInfo = {
-              departureTime: rd.trim(),
-              arrivalTime: ra.trim(),
-              duration: allDur[1][1].trim(),
-              stops: allStops[1][1] === 'Nonstop' ? 0 : parseInt(allStops[1][1])
-            };
+        const data = JSON.parse(jsonMatch[1]);
+        const results: Result[] = [];
+        if (Array.isArray(data.flights)) {
+          for (const f of data.flights) {
+            results.push({
+              kind: 'flight',
+              price: f.price,
+              airline: f.airline,
+              departureTime: f.departureTime,
+              arrivalTime: f.arrivalTime,
+              duration: f.duration || 'N/A',
+              stops: f.stops ?? 0,
+              bookingLink: f.bookingLink,
+              returnInfo: f.returnInfo
+            });
           }
         }
-
-        flights.push(flight);
+        if (Array.isArray(data.pois)) {
+          for (const p of data.pois) {
+            results.push({
+              kind: 'poi',
+              name: p.name,
+              link: p.link,
+              category: p.category
+            });
+          }
+        }
+        if (results.length) {
+          const content = msg.content.replace(jsonMatch[0], '').trim();
+          return { content, results };
+        }
       } catch (e) {
-        console.error('parse error', e);
+        console.error('JSON parse error', e);
       }
     }
 
-    if (flights.length) {
-      return { content: 'Certainly! Here are a few flights I found:', flights };
+    // ----- Flights -----
+    const flightLines = msg.content
+      .split(/\n/)
+      .filter((l) => /^\d+\./.test(l) && /Airline/i.test(l));
+    if (flightLines.length) {
+      const flights: FlightResult[] = [];
+      for (const line of flightLines) {
+        const m = line.match(/Airline\s+([^,]+),\s*Departure:\s*([^,]+),\s*Arrival:\s*([^,]+),\s*Stops:\s*([^,]+),\s*Price:\s*\$(\d+(?:\.\d+)?)/i);
+        if (!m) continue;
+        flights.push({
+          kind: 'flight',
+          airline: m[1].trim(),
+          departureTime: m[2].trim(),
+          arrivalTime: m[3].trim(),
+          duration: 'N/A',
+          stops: m[4].toLowerCase().includes('nonstop') ? 0 : parseInt(m[4], 10),
+          price: parseFloat(m[5]),
+          bookingLink: ''
+        });
+      }
+      if (flights.length) {
+        return { content: 'Certainly! Here are a few flights I found:', results: flights };
+      }
+    }
+
+    // ----- Points of interest -----
+    const poiMatches = [...msg.content.matchAll(/\d+\.\s+\[([^\]]+)\]\(([^)]+)\)(?:\s*-\s*([^\n]+))?/g)];
+    if (poiMatches.length) {
+      const pois: PoiResult[] = poiMatches.map((m) => ({
+        kind: 'poi',
+        name: m[1],
+        link: m[2],
+        category: m[3]?.trim()
+      }));
+      return { content: 'Certainly! Here are some attractions:', results: pois };
     }
 
     return { content: msg.content };
@@ -193,7 +203,7 @@ export default function TravelChatUI() {
         ) : (
           <>
             {messages.map((msg, i) => {
-              const { content, flights } = processMessage(msg);
+              const { content, results } = processMessage(msg);
               return (
                 <div
                   key={i}
@@ -213,18 +223,8 @@ export default function TravelChatUI() {
                     ) : (
                       <div>{content}</div>
                     )}
-                    {flights?.map((f, idx) => (
-                      <FlightCard
-                        key={idx}
-                        price={f.price}
-                        airline={f.airline}
-                        departureTime={f.departureTime}
-                        arrivalTime={f.arrivalTime}
-                        duration={f.duration}
-                        stops={f.stops}
-                        bookingLink={f.bookingLink}
-                        returnInfo={f.returnInfo}
-                      />
+                    {results?.map((r, idx) => (
+                      <ResultCard key={idx} result={r} />
                     ))}
                   </div>
                 </div>
