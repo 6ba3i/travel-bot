@@ -90,6 +90,10 @@ export default function TravelChatUI() {
               returnInfo: f.returnInfo
             });
           }
+
+          flights.push(flight);
+        } catch (e) {
+          console.error('parse error', e);
         }
         if (Array.isArray(data.pois)) {
           for (const p of data.pois) {
@@ -144,6 +148,7 @@ export default function TravelChatUI() {
         link: m[2],
         category: m[3]?.trim()
       }));
+
       return { content: 'Certainly! Here are some attractions:', results: pois };
     }
 
