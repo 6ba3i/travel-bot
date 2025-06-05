@@ -22,7 +22,8 @@ travel-bot/
     │   ├── ResultCard.tsx        # card for flights or attractions
     │   ├── TextInput.tsx         # glassy input field
     │   └── TravelChatUI.tsx      # chat UI; parses assistant replies to render ResultCard
-    │                             # detects JSON blocks or enumerated lists
+    │                             # detects JSON blocks or enumerated lists of flights/POIs
+    │                             # flight lines may start with "Airline" or "Flight"
     │
     ├── contexts/
     │   └── AuthContext.tsx       # Firebase user provider
