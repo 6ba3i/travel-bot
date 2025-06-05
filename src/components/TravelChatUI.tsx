@@ -90,10 +90,6 @@ export default function TravelChatUI() {
               returnInfo: f.returnInfo
             });
           }
-
-          flights.push(flight);
-        } catch (e) {
-          console.error('parse error', e);
         }
         if (Array.isArray(data.pois)) {
           for (const p of data.pois) {
@@ -135,7 +131,12 @@ export default function TravelChatUI() {
         });
       }
       if (flights.length) {
-        return { content: 'Certainly! Here are a few flights I found:', results: flights };
+        const remaining = msg.content
+          .split('\n')
+          .filter((l) => !flightLines.includes(l))
+          .join('\n')
+          .trim();
+        return { content: remaining || 'Certainly! Here are a few flights I found:', results: flights };
       }
     }
 
@@ -148,8 +149,8 @@ export default function TravelChatUI() {
         link: m[2],
         category: m[3]?.trim()
       }));
-
-      return { content: 'Certainly! Here are some attractions:', results: pois };
+      const remaining = msg.content.replace(/\d+\.\s+\[[^\]]+\]\([^\)]+\)(?:\s*-\s*[^\n]+)?\n?/g, '').trim();
+      return { content: remaining || 'Certainly! Here are some attractions:', results: pois };
     }
 
     return { content: msg.content };
