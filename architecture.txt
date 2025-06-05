@@ -23,6 +23,7 @@ travel-bot/
     │   ├── TextInput.tsx         # glassy input field
     │   └── TravelChatUI.tsx      # chat UI; parses assistant replies to render ResultCard
     │                             # detects JSON blocks or enumerated lists
+    │
     ├── contexts/
     │   └── AuthContext.tsx       # Firebase user provider
     │
