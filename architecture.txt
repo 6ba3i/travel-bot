@@ -22,6 +22,10 @@ travel-bot/
     │   ├── ResultCard.tsx        # flight or POI display card
     │   ├── TextInput.tsx         # glassy input field
     │   └── TravelChatUI.tsx      # main chat interface
+    │   ├── FlightCard.tsx        # formatted flight result
+    │   ├── GoogleBtn.tsx         # OAuth button (custom SVG)
+    │   ├── TravelChatUI.tsx      # chat interface
+    │   └── TextInput.tsx         # glassy input field
     │
     ├── contexts/
     │   └── AuthContext.tsx       # Firebase user provider
@@ -45,6 +49,4 @@ travel-bot/
     │
     ├── main.tsx                  # boots <Router/>
     ├── Router.tsx                # public + protected routes
-    ├── index.css                 # Tailwind + custom .bg-grid rule
-    ├── App.tsx                   # (unused placeholder from Vite)
-    └── App.css                   # (unused placeholder)
+    └── index.css                 # Tailwind + custom .bg-grid rule
