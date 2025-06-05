@@ -113,22 +113,40 @@ export default function TravelChatUI() {
     // ----- Flights -----
     const flightLines = msg.content
       .split(/\n/)
-      .filter((l) => /^\d+\./.test(l) && /Airline/i.test(l));
+      .filter((l) => /^\d+\./.test(l) && /(Airline|Flight)/i.test(l));
     if (flightLines.length) {
       const flights: FlightResult[] = [];
       for (const line of flightLines) {
-        const m = line.match(/Airline\s+([^,]+),\s*Departure:\s*([^,]+),\s*Arrival:\s*([^,]+),\s*Stops:\s*([^,]+),\s*Price:\s*\$(\d+(?:\.\d+)?)/i);
-        if (!m) continue;
-        flights.push({
-          kind: 'flight',
-          airline: m[1].trim(),
-          departureTime: m[2].trim(),
-          arrivalTime: m[3].trim(),
-          duration: 'N/A',
-          stops: m[4].toLowerCase().includes('nonstop') ? 0 : parseInt(m[4], 10),
-          price: parseFloat(m[5]),
-          bookingLink: ''
-        });
+        const standard = line.match(/Airline\s+([^,]+),\s*Departure:\s*([^,]+),\s*Arrival:\s*([^,]+),\s*Stops:\s*([^,]+),\s*Price:\s*\$(\d+(?:\.\d+)?)/i);
+        let flight: FlightResult | null = null;
+        if (standard) {
+          flight = {
+            kind: 'flight',
+            airline: standard[1].trim(),
+            departureTime: standard[2].trim(),
+            arrivalTime: standard[3].trim(),
+            duration: 'N/A',
+            stops: standard[4].toLowerCase().includes('nonstop') ? 0 : parseInt(standard[4], 10),
+            price: parseFloat(standard[5]),
+            bookingLink: ''
+          };
+        } else {
+          const loose = line.match(/Flight\s+(\S+).*?\bat\s*(\d{1,2}:\d{2}\s*[AP]M).*?arriv[^\d]*(\d{1,2}:\d{2}\s*[AP]M).*?\$(\d+(?:\.\d+)?)/i);
+          if (loose) {
+            const stops = /direct/i.test(line) ? 0 : (line.match(/(\d+)\s+layover/) ? parseInt(line.match(/(\d+)\s+layover/)![1], 10) : 1);
+            flight = {
+              kind: 'flight',
+              airline: loose[1],
+              departureTime: loose[2],
+              arrivalTime: loose[3],
+              duration: 'N/A',
+              stops,
+              price: parseFloat(loose[4]),
+              bookingLink: ''
+            };
+          }
+        }
+        if (flight) flights.push(flight);
       }
       if (flights.length) {
         const remaining = msg.content
