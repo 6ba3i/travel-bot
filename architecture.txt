@@ -19,11 +19,9 @@ travel-bot/
     ├── components/               # UI atoms (stateless)
     │   ├── BackgroundGrid.tsx    # CSS grid + parallax
     │   ├── GoogleBtn.tsx         # OAuth button (custom SVG)
-    │   ├── ResultCard.tsx        # card for flights or attractions
     │   ├── TextInput.tsx         # glassy input field
-    │   └── TravelChatUI.tsx      # chat UI; parses assistant replies to render ResultCard
-    │                             # detects JSON blocks or enumerated lists of flights/POIs
-    │                             # flight lines may start with "Airline" or "Flight"
+    │   └── TravelChatUI.tsx      # chat UI; renders inline cards for flights, hotels, restaurants
+    │                             # detects JSON blocks in assistant replies
     │
     ├── contexts/
     │   └── AuthContext.tsx       # Firebase user provider
