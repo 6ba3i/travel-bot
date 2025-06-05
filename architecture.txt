@@ -18,9 +18,9 @@ travel-bot/
     │
     ├── components/               # UI atoms (stateless)
     │   ├── BackgroundGrid.tsx    # CSS grid + parallax
-    │   ├── ChatWindow.tsx        # message list
+    │   ├── FlightCard.tsx        # formatted flight result
     │   ├── GoogleBtn.tsx         # OAuth button (custom SVG)
-    │   ├── InputBar.tsx          # textarea + send
+    │   ├── TravelChatUI.tsx      # chat interface
     │   └── TextInput.tsx         # glassy input field
     │
     ├── contexts/
@@ -38,13 +38,11 @@ travel-bot/
     │   └── SignUp.tsx            # create account
     │
     ├── store/                    # global state (Zustand)
-    │   └── useChats.tsx          # messages array + send()
+    │   └── useChat.ts            # messages array + send()
     │
     ├── types/
     │   └── vanta-waves.d.ts      # TS stub for Vanta import
     │
     ├── main.tsx                  # boots <Router/>
     ├── Router.tsx                # public + protected routes
-    ├── index.css                 # Tailwind + custom .bg-grid rule
-    ├── App.tsx                   # (unused placeholder from Vite)
-    └── App.css                   # (unused placeholder)
+    └── index.css                 # Tailwind + custom .bg-grid rule
