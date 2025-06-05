@@ -18,10 +18,11 @@ travel-bot/
     │
     ├── components/               # UI atoms (stateless)
     │   ├── BackgroundGrid.tsx    # CSS grid + parallax
-    │   ├── ChatWindow.tsx        # message list
     │   ├── GoogleBtn.tsx         # OAuth button (custom SVG)
-    │   ├── InputBar.tsx          # textarea + send
-    │   └── TextInput.tsx         # glassy input field
+    │   ├── ResultCard.tsx        # card for flights or attractions
+    │   ├── TextInput.tsx         # glassy input field
+    │   └── TravelChatUI.tsx      # chat UI; parses assistant replies to render ResultCard
+    │                             # detects JSON blocks or enumerated lists
     │
     ├── contexts/
     │   └── AuthContext.tsx       # Firebase user provider
@@ -38,7 +39,7 @@ travel-bot/
     │   └── SignUp.tsx            # create account
     │
     ├── store/                    # global state (Zustand)
-    │   └── useChats.tsx          # messages array + send()
+    │   └── useChat.ts            # messages array + send()
     │
     ├── types/
     │   └── vanta-waves.d.ts      # TS stub for Vanta import
