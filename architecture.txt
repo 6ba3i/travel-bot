@@ -47,6 +47,4 @@ travel-bot/
     │
     ├── main.tsx                  # boots <Router/>
     ├── Router.tsx                # public + protected routes
-    ├── index.css                 # Tailwind + custom .bg-grid rule
-    ├── App.tsx                   # (unused placeholder from Vite)
-    └── App.css                   # (unused placeholder)
+    └── index.css                 # Tailwind + custom .bg-grid rule
