@@ -11,6 +11,11 @@ const SAMPLE_PROMPTS = [
   "What's the weather like in Bali next week?"
 ];
 
+const QUICK_ACTIONS = [
+  { label: 'Search nearby attractions', prompt: 'Search nearby attractions' },
+  { label: 'Show hotels', prompt: 'Show hotels nearby' }
+];
+
 // Typing effect component
 interface TypeWriterProps {
   text: string;
@@ -64,6 +69,12 @@ export default function TravelChatUI() {
   // Prefill input with sample prompt
   const handlePromptClick = (prompt: string) => {
     setInput(prompt);
+  };
+
+  const handleQuickAction = async (prompt: string) => {
+    setIsTyping(true);
+    await send(prompt);
+    setIsTyping(false);
   };
 
   // Parse assistant messages for structured results
@@ -190,15 +201,15 @@ export default function TravelChatUI() {
               return (
                 <div
                   key={i}
-                  className={`mb-2 flex ${
+                  className={`mb-4 flex ${
                     msg.role === 'user' ? 'justify-end' : 'justify-start'
                   }`}
                 >
                   <div
-                    className={`max-w-[75%] p-4 rounded-xl ${
+                    className={`max-w-[75%] p-4 rounded-xl animate-fade-in ${
                       msg.role === 'user'
-                        ? 'bg-indigo-600 text-white'
-                        : 'bg-gray-800 text-white'
+                        ? 'bg-indigo-500 text-white'
+                        : 'bg-gray-700 text-white'
                     }`}
                   >
                     {i === messages.length - 1 && msg.role === 'assistant' && isTyping ? (
@@ -215,8 +226,8 @@ export default function TravelChatUI() {
             })}
 
             {isTyping && messages[messages.length - 1]?.role !== 'assistant' && (
-              <div className="flex mb-2">
-                <div className="bg-gray-800 text-white p-4 rounded-xl flex items-center">
+              <div className="flex mb-4">
+                <div className="bg-gray-700 text-white p-4 rounded-xl flex items-center animate-fade-in">
                   <Loader2 className="animate-spin h-4 w-4 mr-2" />
                   <span>TravelBot is typing...</span>
                 </div>
@@ -229,7 +240,8 @@ export default function TravelChatUI() {
       </div>
 
       {/* Input bar */}
-      <form onSubmit={handleSubmit} className="border-t border-gray-700 p-4 flex">
+      <div className="border-t border-gray-700 p-3 bg-gray-900 sticky bottom-0 flex flex-col gap-2">
+      <form onSubmit={handleSubmit} className="flex">
         <input
           type="text"
           value={input}
@@ -247,6 +259,18 @@ export default function TravelChatUI() {
           <SendHorizontal className="h-5 w-5 text-white" />
         </button>
       </form>
+      <div className="flex gap-2 overflow-x-auto">
+        {QUICK_ACTIONS.map(action => (
+          <button
+            key={action.label}
+            onClick={() => handleQuickAction(action.prompt)}
+            className="text-sm px-3 py-1 rounded bg-indigo-600 text-white hover:bg-indigo-700 whitespace-nowrap"
+          >
+            {action.label}
+          </button>
+        ))}
+      </div>
+      </div>
     </div>
   </div>
   );

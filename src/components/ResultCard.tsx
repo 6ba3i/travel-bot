@@ -41,7 +41,7 @@ export default function ResultCard({ result }: Props) {
 
     return (
       <div
-        className="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+        className="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer animate-expand"
         onClick={handleClick}
       >
         <div className="flex justify-between items-center mb-3">
@@ -94,7 +94,7 @@ export default function ResultCard({ result }: Props) {
 
   return (
     <div
-      className="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer"
+      className="bg-white border border-gray-200 rounded-lg p-4 mb-4 shadow-sm hover:shadow-md transition-shadow cursor-pointer animate-expand"
       onClick={handleClick}
     >
       <div className="flex justify-between items-start">

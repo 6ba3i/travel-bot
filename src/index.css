@@ -1,6 +1,10 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+body {
+  @apply bg-gray-900 text-white font-sans;
+}
 /* --- dynamic grid background --- */
 .bg-grid{
     --size: 100px;                     /* grid square size */
