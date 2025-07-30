@@ -10,7 +10,7 @@ travel-bot/
 ├── tsconfig.json
 ├── tsconfig.node.json
 ├── tsconfig.app.json
-├── server.mjs            # Express proxy → Mistral + tools
+├── server.mjs            # Express proxy → Gemini + tools
 │
 └── src/
     ├── assets/
