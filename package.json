@@ -4,8 +4,8 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently \"vite\" \"TS_NODE_TRANSPILE_ONLY=true TS_NODE_PROJECT=tsconfig.node.json nodemon --loader ts-node/esm server.mjs\"",
-    "dev:noproxy": "node ./scripts/no-proxy.js",
+    "dev": "node ./scripts/dev.js",
+    "dev:noproxy": "node ./scripts/dev.js",
     "build": "vite build",
     "preview": "vite preview"
   },
