@@ -40,7 +40,7 @@ If the user asks anything non-travel, politely redirect them to travel topics.
 `;
 
 /*───────────────────  tool schema  ─────────────────*/
-// Mistral's API expects a different format for tools - let's fix it
+// Gemini's API expects a different format for tools - let's fix it
 const tools = [
   {
     function: {
@@ -113,49 +113,40 @@ app.post('/api/chat', async (req, res) => {
   const { messages } = req.body;
   console.log('📤 User messages:', JSON.stringify(messages, null, 2));
 
-  const chatMessages = [
-    { role: 'system', content: SYSTEM_PROMPT },
-    ...messages
-  ];
-
-  console.log('🤖 Sending request to Mistral API');
+  console.log('🤖 Sending request to Gemini API');
   try {
-    const mistralRequest = {
-      model      : 'mistral-small',
-      messages   : chatMessages,
-      tools,
-      tool_choice: 'auto',
-      stream     : false
+    const geminiRequest = {
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: messages.map(m => ({
+        role : m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      }))
     };
-    
-    console.log('🔍 Mistral request payload:', JSON.stringify(mistralRequest, null, 2));
-    
-    const openRes = await fetch('https://api.mistral.ai/v1/chat/completions', {
+
+    console.log('🔍 Gemini request payload:', JSON.stringify(geminiRequest, null, 2));
+
+    const openRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method : 'POST',
       headers: {
-        Authorization : `Bearer ${process.env.MISTRAL_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify(mistralRequest)
+      body: JSON.stringify(geminiRequest)
     });
 
     /*------------- handle model or error -------------*/
     if (!openRes.ok) {
       const error = await openRes.text();
-      console.error('❌ Mistral API error:', error);
+      console.error('❌ Gemini API error:', error);
       return res.status(500).json({ error });
     }
 
     const data = await openRes.json();
-    console.log('✅ Mistral API response received');
-    console.log('★ Raw Mistral reply →', JSON.stringify(data, null, 2));
-    
-    if (!data.choices || data.choices.length === 0) {
-      console.error('❌ No choices in Mistral response');
-      return res.status(500).json({ error: 'Invalid response from Mistral API' });
-    }
-    
-    const choice = data.choices[0];
+    console.log('✅ Gemini API response received');
+    console.log('★ Raw Gemini reply →', JSON.stringify(data, null, 2));
+
+    const choiceText = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
+    const finishReason = data.candidates?.[0]?.finishReason;
+    const choice = { message: { role: 'assistant', content: choiceText }, finish_reason: finishReason };
     console.log('🔄 Processing choice:', JSON.stringify(choice, null, 2));
 
     /*────────── handle searchFlights tool call ───────*/
@@ -207,7 +198,7 @@ app.post('/api/chat', async (req, res) => {
     }
 
     /*────────── plain model answer ───────────────────*/
-    console.log('📤 Sending regular Mistral response');
+    console.log('📤 Sending regular Gemini response');
     res.json(data);
     
   } catch (error) {
