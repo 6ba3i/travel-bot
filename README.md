@@ -65,8 +65,5 @@ cp .env.example .env
 # → add Firebase + Gemini + OpenTripMap keys
 
 # 4. Run dev servers (Vite + Express proxy)
+# (The script will automatically ignore HTTP proxy variables)
 npm run dev
-
-# If you see "http proxy error" messages, your environment
-# might have HTTP(S)_PROXY variables set. Disable them with:
-#   npm run dev:noproxy
