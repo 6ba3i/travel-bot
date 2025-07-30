@@ -22,7 +22,7 @@ Built to **learn React from scratch**, practice modern tooling, and explore LLM+
 | **Frontend** | React 18, Vite, TypeScript, Tailwind |
 | **State** | Zustand |
 | **Auth** | Firebase Auth (Email/Password + Google) |
-| **AI** | Gemini Pro (`/v1beta/models/gemini-pro:generateContent`) |
+| **AI** | Gemini Pro (`/v1/models/gemini-pro:generateContent`) |
 | **Data APIs** | OpenTripMap (POIs) · Navitia (transit) · OpenWeather |
 | **Server proxy** | Node 18 + Express (Edge-ready) |
 | **Persistence (roadmap)** | Supabase (Postgres + pgvector) |
