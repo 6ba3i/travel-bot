@@ -125,7 +125,7 @@ app.post('/api/chat', async (req, res) => {
 
     console.log('🔍 Gemini request payload:', JSON.stringify(geminiRequest, null, 2));
 
-    const openRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    const openRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method : 'POST',
       headers: {
         'Content-Type': 'application/json'
