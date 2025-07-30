@@ -10,7 +10,7 @@ Built to **learn React from scratch**, practice modern tooling, and explore LLM+
 | Ask the bot… | It will… | Powered by |
 |--------------|----------|------------|
 | *“Best cafés with Wi-Fi in Kyoto?”* | Return a ranked list (distance, opening hours, Google Maps links) | OpenTripMap |
-| *“Plan 3 days in Lisbon under €400”* | Build a budget-aware itinerary split by day & neighbourhood | Mistral + custom planner |
+| *“Plan 3 days in Lisbon under €400”* | Build a budget-aware itinerary split by day & neighbourhood | Gemini + custom planner |
 | *“Where should I go in May for hiking + street food?”* | Suggest destinations, climate notes & sample costs | Weather & price datasets |
 
 ---
@@ -22,7 +22,7 @@ Built to **learn React from scratch**, practice modern tooling, and explore LLM+
 | **Frontend** | React 18, Vite, TypeScript, Tailwind |
 | **State** | Zustand |
 | **Auth** | Firebase Auth (Email/Password + Google) |
-| **AI** | Mistral Small (`/v1/chat/completions`) |
+| **AI** | Gemini Pro (`/v1beta/models/gemini-pro:generateContent`) |
 | **Data APIs** | OpenTripMap (POIs) · Navitia (transit) · OpenWeather |
 | **Server proxy** | Node 18 + Express (Edge-ready) |
 | **Persistence (roadmap)** | Supabase (Postgres + pgvector) |
@@ -62,7 +62,7 @@ npm install
 
 # 3. Fill .env  (see .env.example)
 cp .env.example .env
-# → add Firebase + Mistral + OpenTripMap keys
+# → add Firebase + Gemini + OpenTripMap keys
 
 # 4. Run dev servers (Vite + Express proxy)
 npm run dev
