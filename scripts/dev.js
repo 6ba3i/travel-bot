@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { concurrently } from 'concurrently';
 
 const proxyVars = [
   'http_proxy',
@@ -21,7 +21,18 @@ if (cleaned) {
   console.log('[dev] Removed HTTP proxy environment variables to avoid connection errors.');
 }
 
-spawn('npx', ['concurrently',
-  '"vite"',
-  '"TS_NODE_TRANSPILE_ONLY=true TS_NODE_PROJECT=tsconfig.node.json nodemon --loader ts-node/esm server.mjs"'
-], { stdio: 'inherit', shell: true });
+const commands = [
+  { command: 'vite', name: 'vite', prefixColor: 'cyan' },
+  {
+    command: 'nodemon --loader ts-node/esm server.mjs',
+    name: 'server',
+    prefixColor: 'gray',
+    env: {
+      TS_NODE_TRANSPILE_ONLY: 'true',
+      TS_NODE_PROJECT: 'tsconfig.node.json'
+    }
+  }
+];
+
+const { result } = concurrently(commands, { prefix: 'name' });
+result.catch(() => process.exit(1));
