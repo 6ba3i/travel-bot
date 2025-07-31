@@ -116,7 +116,7 @@ app.post('/api/chat', async (req, res) => {
   console.log('🤖 Sending request to Gemini API');
   try {
     const geminiRequest = {
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: messages.map(m => ({
         role : m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }]
