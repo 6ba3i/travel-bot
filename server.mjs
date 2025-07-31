@@ -40,71 +40,65 @@ If the user asks anything non-travel, politely redirect them to travel topics.
 `;
 
 /*───────────────────  tool schema  ─────────────────*/
-// Gemini's API expects a different format for tools - let's fix it
-const tools = [
+// Gemini expects tools as function_declarations inside a single object
+const functionDeclarations = [
   {
-    function: {
-      name: 'searchFlights',
-      description: 'Search for flight prices and booking links',
-      parameters: {
-        type: 'object',
-        properties: {
-          origin     : { type:'string', description:'IATA, e.g. JFK' },
-          destination: { type:'string', description:'IATA, e.g. LAX' },
-          date       : { type:'string', format:'date', description:'Outbound date YYYY-MM-DD' },
-          returnDate : { type:'string', format:'date', description:'Return date YYYY-MM-DD for round trips' },
-          cabin      : { type:'string', enum:['economy','business'], default:'economy' },
-          tripType   : { type:'string', enum:['one_way','round_trip'], default:'one_way' }
-        },
-        required: ['origin','destination','date']
-      }
+    name: 'searchFlights',
+    description: 'Search for flight prices and booking links',
+    parameters: {
+      type: 'object',
+      properties: {
+        origin     : { type: 'string', description: 'IATA, e.g. JFK' },
+        destination: { type: 'string', description: 'IATA, e.g. LAX' },
+        date       : { type: 'string', format: 'date', description: 'Outbound date YYYY-MM-DD' },
+        returnDate : { type: 'string', format: 'date', description: 'Return date YYYY-MM-DD for round trips' },
+        cabin      : { type: 'string', enum: ['economy', 'business'], default: 'economy' },
+        tripType   : { type: 'string', enum: ['one_way', 'round_trip'], default: 'one_way' }
+      },
+      required: ['origin', 'destination', 'date']
     }
   },
   {
-    function: {
-      name: 'searchHotels',
-      description: 'Find hotel offers in a city',
-      parameters: {
-        type: 'object',
-        properties: {
-          cityCode: { type:'string', description:'IATA city code, e.g. PAR' },
-          checkIn : { type:'string', format:'date', description:'Check-in date YYYY-MM-DD' },
-          nights  : { type:'integer', default:1, description:'Number of nights' }
-        },
-        required: ['cityCode','checkIn']
-      }
+    name: 'searchHotels',
+    description: 'Find hotel offers in a city',
+    parameters: {
+      type: 'object',
+      properties: {
+        cityCode: { type: 'string', description: 'IATA city code, e.g. PAR' },
+        checkIn : { type: 'string', format: 'date', description: 'Check-in date YYYY-MM-DD' },
+        nights  : { type: 'integer', default: 1, description: 'Number of nights' }
+      },
+      required: ['cityCode', 'checkIn']
     }
   },
   {
-    function: {
-      name: 'searchPOI',
-      description: 'Search points of interest near a location',
-      parameters: {
-        type: 'object',
-        properties: {
-          location: { type:'string', description:'City name or "lat,lon"' },
-          kinds   : { type:'string', description:'POI categories comma separated' },
-          limit   : { type:'integer', default:10 }
-        },
-        required: ['location']
-      }
+    name: 'searchPOI',
+    description: 'Search points of interest near a location',
+    parameters: {
+      type: 'object',
+      properties: {
+        location: { type: 'string', description: 'City name or "lat,lon"' },
+        kinds   : { type: 'string', description: 'POI categories comma separated' },
+        limit   : { type: 'integer', default: 10 }
+      },
+      required: ['location']
     }
   },
   {
-    function: {
-      name: 'getWeather',
-      description: 'Get 7 day weather forecast for coordinates',
-      parameters: {
-        type: 'object',
-        properties: {
-          lat: { type:'number', description:'Latitude' },
-          lon: { type:'number', description:'Longitude' }
-        },
-        required: ['lat','lon']
-      }
+    name: 'getWeather',
+    description: 'Get 7 day weather forecast for coordinates',
+    parameters: {
+      type: 'object',
+      properties: {
+        lat: { type: 'number', description: 'Latitude' },
+        lon: { type: 'number', description: 'Longitude' }
+      },
+      required: ['lat', 'lon']
     }
   }
 ];
+
+const tools = [{ function_declarations: functionDeclarations }];
 
 
 /*───────────────────  route  ───────────────────────*/
@@ -116,11 +110,13 @@ app.post('/api/chat', async (req, res) => {
   console.log('🤖 Sending request to Gemini API');
   try {
     const geminiRequest = {
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: messages.map(m => ({
         role : m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }]
-      }))
+      })),
+      tools,
+      tool_config: { function_calling_config: { mode: 'AUTO' } }
     };
 
     console.log('🔍 Gemini request payload:', JSON.stringify(geminiRequest, null, 2));
@@ -144,22 +140,13 @@ app.post('/api/chat', async (req, res) => {
     console.log('✅ Gemini API response received');
     console.log('★ Raw Gemini reply →', JSON.stringify(data, null, 2));
 
-    const choiceText = data.candidates?.[0]?.content?.parts?.map(p => p.text).join('') || '';
-    const finishReason = data.candidates?.[0]?.finishReason;
-    const choice = { message: { role: 'assistant', content: choiceText }, finish_reason: finishReason };
-    console.log('🔄 Processing choice:', JSON.stringify(choice, null, 2));
+    const candidate = data.candidates?.[0];
+    const part = candidate?.content?.parts?.[0] || {};
 
-    /*────────── handle searchFlights tool call ───────*/
-    console.log('🔍 Checking for tool calls...');
-    console.log('Finish reason:', choice.finish_reason);
-    console.log('Tool calls present:', !!choice.message.tool_calls);
-    
-    if (choice.message.tool_calls && choice.message.tool_calls.length > 0) {
-      console.log('🛠️ Tool call detected:', JSON.stringify(choice.message.tool_calls, null, 2));
-
-      const toolCall = choice.message.tool_calls[0];
-      const args = JSON.parse(toolCall.function.arguments || '{}');
-      const name = toolCall.function.name;
+    if (part.functionCall) {
+      console.log('🛠️ Tool call detected:', JSON.stringify(part.functionCall, null, 2));
+      const name = part.functionCall.name;
+      const args = JSON.parse(part.functionCall.args || '{}');
 
       try {
         if (name === 'searchFlights') {
@@ -195,11 +182,11 @@ app.post('/api/chat', async (req, res) => {
         console.error('❌ Error processing tool call:', e);
         return res.json({ choices: [{ message: { role: 'assistant', content: 'Sorry, something went wrong executing that tool.' } }] });
       }
+    } else {
+      const text = candidate?.content?.parts?.map(p => p.text).join('') || '';
+      console.log('📤 Sending regular Gemini response');
+      return res.json({ choices: [{ message: { role: 'assistant', content: text } }] });
     }
-
-    /*────────── plain model answer ───────────────────*/
-    console.log('📤 Sending regular Gemini response');
-    res.json(data);
     
   } catch (error) {
     console.error('❌ Server exception:', error);
