@@ -48,10 +48,10 @@ const functionDeclarations = [
     parameters: {
       type: 'object',
       properties: {
-        origin     : { type: 'string', description: 'IATA, e.g. JFK' },
-        destination: { type: 'string', description: 'IATA, e.g. LAX' },
-        date       : { type: 'string', format: 'date', description: 'Outbound date YYYY-MM-DD' },
-        returnDate : { type: 'string', format: 'date', description: 'Return date YYYY-MM-DD for round trips' },
+        origin     : { type: 'string', description: 'IATA airport code, e.g. JFK' },
+        destination: { type: 'string', description: 'IATA airport code, e.g. LAX' },
+        date       : { type: 'string', description: 'Outbound date in YYYY-MM-DD format' }, // Removed format
+        returnDate : { type: 'string', description: 'Return date in YYYY-MM-DD format for round trips' }, // Removed format
         cabin      : { type: 'string', enum: ['economy', 'business'], default: 'economy' },
         tripType   : { type: 'string', enum: ['one_way', 'round_trip'], default: 'one_way' }
       },
@@ -65,7 +65,7 @@ const functionDeclarations = [
       type: 'object',
       properties: {
         cityCode: { type: 'string', description: 'IATA city code, e.g. PAR' },
-        checkIn : { type: 'string', format: 'date', description: 'Check-in date YYYY-MM-DD' },
+        checkIn : { type: 'string', description: 'Check-in date in YYYY-MM-DD format' }, // Removed format
         nights  : { type: 'integer', default: 1, description: 'Number of nights' }
       },
       required: ['cityCode', 'checkIn']
@@ -98,8 +98,101 @@ const functionDeclarations = [
   }
 ];
 
-const tools = [{ function_declarations: functionDeclarations }];
+const tools = [{ functionDeclarations: functionDeclarations }];
 
+/*───────────────────  route with correct endpoint  ───────────────────────*/
+app.post('/api/chat', async (req, res) => {
+  console.log('📥 Received chat request');
+  const { messages } = req.body;
+  console.log('📤 User messages:', JSON.stringify(messages, null, 2));
+
+  console.log('🤖 Sending request to Gemini API');
+  try {
+    const geminiRequest = {
+      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      contents: messages.map(m => ({
+        role : m.role === 'assistant' ? 'model' : 'user',
+        parts: [{ text: m.content }]
+      })),
+      tools,
+      toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
+    };
+
+    console.log('🔍 Gemini request payload:', JSON.stringify(geminiRequest, null, 2));
+
+    // FIXED: Use v1beta endpoint with gemini-1.5-flash model
+    const openRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+      method : 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(geminiRequest)
+    });
+
+    /*------------- handle model or error -------------*/
+    if (!openRes.ok) {
+      const error = await openRes.text();
+      console.error('❌ Gemini API error:', error);
+      return res.status(500).json({ error });
+    }
+
+    const data = await openRes.json();
+    console.log('✅ Gemini API response received');
+    console.log('★ Raw Gemini reply →', JSON.stringify(data, null, 2));
+
+    const candidate = data.candidates?.[0];
+    const part = candidate?.content?.parts?.[0] || {};
+
+    if (part.functionCall) {
+      console.log('🛠️ Tool call detected:', JSON.stringify(part.functionCall, null, 2));
+      const name = part.functionCall.name;
+      const args = part.functionCall.args || {}; // No need to JSON.parse, it's already an object
+
+      try {
+        if (name === 'searchFlights') {
+          console.log('✈️ Running searchFlights with', args);
+          const flights = await searchFlights(args);
+          const formatted = formatFlights(flights, args.tripType);
+          return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
+        }
+
+        if (name === 'searchHotels') {
+          console.log('🏨 Running searchHotels with', args);
+          const hotels = await searchHotels(args);
+          const formatted = formatHotels(hotels);
+          return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
+        }
+
+        if (name === 'searchPOI') {
+          console.log('📍 Running searchPOI with', args);
+          const pois = await searchPOI(args);
+          const formatted = formatPOI(pois);
+          return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
+        }
+
+        if (name === 'getWeather') {
+          console.log('🌤️ Running getWeather with', args);
+          const w = await getWeather(args);
+          const formatted = formatWeather(w);
+          return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
+        }
+
+        console.log('⚠️ Unknown tool name:', name);
+      } catch (e) {
+        console.error('❌ Error processing tool call:', e);
+        return res.json({ choices: [{ message: { role: 'assistant', content: 'Sorry, something went wrong executing that tool.' } }] });
+      }
+    } else {
+      const text = candidate?.content?.parts?.map(p => p.text).join('') || '';
+      console.log('📤 Sending regular Gemini response');
+      return res.json({ choices: [{ message: { role: 'assistant', content: text } }] });
+    }
+    
+  } catch (error) {
+    console.error('❌ Server exception:', error);
+    return res.status(500).json({ error: 'Server error: ' + error.message });
+  }
+});
 
 /*───────────────────  route  ───────────────────────*/
 app.post('/api/chat', async (req, res) => {
@@ -110,18 +203,23 @@ app.post('/api/chat', async (req, res) => {
   console.log('🤖 Sending request to Gemini API');
   try {
     const geminiRequest = {
-      system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
+      systemInstruction: { 
+        parts: [{ text: SYSTEM_PROMPT }] 
+      },
       contents: messages.map(m => ({
         role : m.role === 'assistant' ? 'model' : 'user',
         parts: [{ text: m.content }]
       })),
       tools,
-      tool_config: { function_calling_config: { mode: 'AUTO' } }
+      toolConfig: { 
+        functionCallingConfig: { mode: 'AUTO' } 
+      }
     };
 
     console.log('🔍 Gemini request payload:', JSON.stringify(geminiRequest, null, 2));
 
-    const openRes = await fetch(`https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=${process.env.GEMINI_API_KEY}`, {
+    // FIXED: Use v1beta endpoint and proper model name
+    const openRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method : 'POST',
       headers: {
         'Content-Type': 'application/json'
