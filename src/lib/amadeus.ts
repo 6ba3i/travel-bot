@@ -1,11 +1,11 @@
-// src/lib/amadeus.js
+// src/lib/amadeus.ts
 import fetch from 'node-fetch';
 
-// Amadeus requires OAuth2 token for authentication
 let token = '';
 let expires = 0;
 
-async function getToken() {
+// Get & cache Amadeus OAuth token
+async function getToken(): Promise<string> {
   if (token && Date.now() < expires) return token;
 
   console.log('🔑 Getting new Amadeus token...');
@@ -15,8 +15,8 @@ async function getToken() {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'client_credentials',
-      client_id: process.env.AMADEUS_API_KEY,
-      client_secret: process.env.AMADEUS_API_SECRET || '' // We'll add this to .env
+      client_id: process.env.AMADEUS_API_KEY || '',
+      client_secret: '' // Self-service APIs don't need client_secret
     })
   });
 
@@ -26,12 +26,45 @@ async function getToken() {
     throw new Error(`Amadeus auth failed: ${error}`);
   }
 
-  const json = await res.json();
+  const json = await res.json() as { access_token: string; expires_in: number };
   token = json.access_token;
   expires = Date.now() + json.expires_in * 1000 - 60_000; // renew 1 min early
   
   console.log('✅ Amadeus token obtained');
   return token;
+}
+
+// Flight search interface
+export interface FlightSearchParams {
+  origin: string;
+  destination: string;
+  date: string; // YYYY-MM-DD
+  returnDate?: string;
+  cabin?: 'ECONOMY' | 'PREMIUM_ECONOMY' | 'BUSINESS' | 'FIRST';
+  tripType?: 'one_way' | 'round_trip';
+  adults?: number;
+}
+
+export interface Flight {
+  price: {
+    total_amount: string;
+    currency: string;
+  };
+  routes: Array<{
+    airline: string;
+    departureTime: string;
+    arrivalTime: string;
+    duration: string;
+    stops: number;
+  }>;
+  returnRoute?: {
+    airline: string;
+    departureTime: string;
+    arrivalTime: string;
+    duration: string;
+    stops: number;
+  };
+  booking_link: string;
 }
 
 export async function searchFlights({
@@ -41,7 +74,7 @@ export async function searchFlights({
   returnDate,
   cabin = 'ECONOMY',
   adults = 1
-}) {
+}: FlightSearchParams): Promise<{ data: Flight[] }> {
   try {
     const bearer = await getToken();
     
@@ -77,11 +110,11 @@ export async function searchFlights({
       throw new Error(`Flight search failed: ${error}`);
     }
 
-    const data = await res.json();
+    const data = await res.json() as { data: any[] };
     console.log(`✅ Found ${data.data?.length || 0} flight offers`);
 
     // Transform Amadeus response to our format
-    const flights = data.data?.map(offer => {
+    const flights: Flight[] = data.data?.map(offer => {
       const outbound = offer.itineraries[0];
       const segments = outbound.segments;
       const firstSegment = segments[0];
@@ -90,7 +123,7 @@ export async function searchFlights({
       // Calculate stops (segments - 1)
       const stops = segments.length - 1;
 
-      const flight = {
+      const flight: Flight = {
         price: {
           total_amount: offer.price.total,
           currency: offer.price.currency
@@ -132,6 +165,31 @@ export async function searchFlights({
   }
 }
 
+// Hotel search interface
+export interface HotelSearchParams {
+  cityCode: string; // IATA city code like "PAR" for Paris
+  checkIn: string; // YYYY-MM-DD
+  checkOut?: string; // YYYY-MM-DD
+  nights?: number;
+  adults?: number;
+  rooms?: number;
+}
+
+export interface Hotel {
+  hotel: {
+    name: string;
+    cityCode: string;
+  };
+  offers: Array<{
+    price: {
+      total: string;
+      currency: string;
+    };
+    url?: string;
+    bookingLink?: string;
+  }>;
+}
+
 export async function searchHotels({
   cityCode,
   checkIn,
@@ -139,7 +197,7 @@ export async function searchHotels({
   nights = 1,
   adults = 1,
   rooms = 1
-}) {
+}: HotelSearchParams): Promise<{ data: Hotel[] }> {
   try {
     const bearer = await getToken();
     
@@ -168,16 +226,16 @@ export async function searchHotels({
       throw new Error(`Hotel search failed: ${error}`);
     }
 
-    const data = await res.json();
+    const data = await res.json() as { data: any[] };
     console.log(`✅ Found ${data.data?.length || 0} hotel offers`);
 
     // Transform Amadeus response to our format
-    const hotels = data.data?.map(hotelData => ({
+    const hotels: Hotel[] = data.data?.map(hotelData => ({
       hotel: {
         name: hotelData.hotel.name,
         cityCode: hotelData.hotel.cityCode
       },
-      offers: hotelData.offers.map(offer => ({
+      offers: hotelData.offers.map((offer: any) => ({
         price: {
           total: offer.price.total,
           currency: offer.price.currency
