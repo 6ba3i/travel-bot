@@ -1,37 +1,35 @@
-/*───────────────────  basic setup  ──────────────────*/
+/*───────────────────  Updated server.mjs with SerpApi  ──────────────────*/
 import 'dotenv/config';
-import express   from 'express';
-import cors      from 'cors';
-import fetch     from 'node-fetch';
-import { searchFlights, searchHotels } from './src/lib/amadeus.js';  // Updated import
-import { searchPOI }    from './src/lib/openTrip.js';
-import { getWeather }   from './src/lib/weather.js';
+import express from 'express';
+import cors from 'cors';
+import fetch from 'node-fetch';
+import { searchFlights, searchHotels, searchPOI, getWeather } from './src/lib/serpApi.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-console.log('🚀 Server initialization complete');
+console.log('🚀 Server with SerpApi integration complete');
 
-/*───────────────────  travel-only prompt  ───────────*/
+/*───────────────────  Updated travel prompt  ───────────*/
 const SYSTEM_PROMPT = `
-You are TravelBot, an intelligent travel assistant that handles all travel-related queries seamlessly.
+You are TravelBot, an intelligent travel assistant powered by Google's search data through SerpApi.
 
 CORE CAPABILITIES:
-- Flight searches using searchFlights
-- Hotel searches using searchHotels  
-- Points of interest using searchPOI
-- Weather forecasts using getWeather
+- Flight searches using Google Flights data (searchFlights)
+- Hotel searches using Google Hotels data (searchHotels)  
+- Points of interest using Google Local data (searchPOI)
+- Weather forecasts using OpenWeather (getWeather)
 
 SMART PROCESSING RULES:
 1. **Airport/City Code Conversion**: You know major airport codes and city codes. Convert automatically:
    - Casablanca = CMN
    - Barcelona = BCN  
-   - Paris = CDG/ORY (prefer CDG), city code PAR
-   - London = LHR/LGW (prefer LHR), city code LON
-   - New York = JFK/LGA/EWR (prefer JFK), city code NYC
+   - Paris = CDG/ORY (prefer CDG)
+   - London = LHR/LGW (prefer LHR)
+   - New York = JFK/LGA/EWR (prefer JFK)
    - Madrid = MAD
-   - Tokyo = NRT/HND (prefer NRT), city code TYO
+   - Tokyo = NRT/HND (prefer NRT)
    - Dubai = DXB
    - Istanbul = IST
    - Los Angeles = LAX
@@ -51,23 +49,27 @@ SMART PROCESSING RULES:
 
 4. **Immediate Action**: When you have enough info, search immediately. Don't ask for confirmations.
 
+DATA SOURCES:
+- Flight data comes from Google Flights (real bookable flights with pricing)
+- Hotel data comes from Google Hotels (real availability and pricing)
+- Attractions come from Google Local (real businesses with reviews)
+- All data is scraped in real-time, so it's current and accurate
+
 RESPONSE STYLE:
 - Be enthusiastic and helpful
 - Search immediately when possible
-- Provide 2-3 options maximum
-- Include prices, times, and booking links
-- Offer related services (hotels after flights, weather, attractions)
+- Provide 2-3 options maximum with real prices and booking links
+- Include ratings, reviews, and practical details
+- Offer related services (hotels after flights, attractions, weather)
 
 If you cannot determine a city/airport code or date, THEN ask for clarification.
 `;
 
-/*───────────────────  tool schema  ─────────────────*/
-
-/*───────────────────  tool schema  ─────────────────*/
+/*───────────────────  Updated tool schema  ─────────────────*/
 const functionDeclarations = [
   {
     name: 'searchFlights',
-    description: 'Search for flight prices and booking information using Amadeus API',
+    description: 'Search for real bookable flights using Google Flights data via SerpApi',
     parameters: {
       type: 'object',
       properties: {
@@ -75,38 +77,36 @@ const functionDeclarations = [
         destination: { type: 'string', description: 'IATA airport code, e.g. LAX' },
         date       : { type: 'string', description: 'Departure date in YYYY-MM-DD format' },
         returnDate : { type: 'string', description: 'Return date in YYYY-MM-DD format for round trips' },
-        cabin      : { type: 'string', enum: ['ECONOMY', 'PREMIUM_ECONOMY', 'BUSINESS', 'FIRST'], default: 'ECONOMY' },
-        tripType   : { type: 'string', enum: ['one_way', 'round_trip'], default: 'one_way' },
-        adults     : { type: 'integer', default: 1, description: 'Number of adult passengers' }
+        adults     : { type: 'integer', default: 1, description: 'Number of adult passengers' },
+        tripType   : { type: 'string', enum: ['one_way', 'round_trip'], default: 'one_way' }
       },
       required: ['origin', 'destination', 'date']
     }
   },
   {
     name: 'searchHotels',
-    description: 'Find hotel offers in a city using Amadeus API',
+    description: 'Find real hotel offers using Google Hotels data via SerpApi',
     parameters: {
       type: 'object',
       properties: {
-        cityCode: { type: 'string', description: 'IATA city code, e.g. PAR for Paris' },
+        location: { type: 'string', description: 'City name, e.g. "Paris" or "Barcelona"' },
         checkIn : { type: 'string', description: 'Check-in date in YYYY-MM-DD format' },
         checkOut: { type: 'string', description: 'Check-out date in YYYY-MM-DD format' },
-        nights  : { type: 'integer', default: 1, description: 'Number of nights (alternative to checkOut)' },
-        adults  : { type: 'integer', default: 1, description: 'Number of adults' },
-        rooms   : { type: 'integer', default: 1, description: 'Number of rooms' }
+        adults  : { type: 'integer', default: 2, description: 'Number of adults' },
+        children: { type: 'integer', default: 0, description: 'Number of children' }
       },
-      required: ['cityCode', 'checkIn']
+      required: ['location', 'checkIn', 'checkOut']
     }
   },
   {
     name: 'searchPOI',
-    description: 'Search points of interest near a location',
+    description: 'Search points of interest and attractions using Google Local data',
     parameters: {
       type: 'object',
       properties: {
-        location: { type: 'string', description: 'City name or "lat,lon"' },
-        kinds   : { type: 'string', description: 'POI categories comma separated' },
-        limit   : { type: 'integer', default: 10 }
+        location: { type: 'string', description: 'City name, e.g. "Paris" or "Barcelona"' },
+        query   : { type: 'string', description: 'Type of attractions, e.g. "museums", "restaurants", "tourist attractions"', default: 'tourist attractions' },
+        limit   : { type: 'integer', default: 10, description: 'Number of results to return' }
       },
       required: ['location']
     }
@@ -127,13 +127,11 @@ const functionDeclarations = [
 
 const tools = [{ functionDeclarations: functionDeclarations }];
 
-/*───────────────────  route with correct endpoint  ───────────────────────*/
+/*───────────────────  Main chat route  ───────────────────────*/
 app.post('/api/chat', async (req, res) => {
   console.log('📥 Received chat request');
   const { messages } = req.body;
-  console.log('📤 User messages:', JSON.stringify(messages, null, 2));
 
-  console.log('🤖 Sending request to Gemini API');
   try {
     const geminiRequest = {
       systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
@@ -145,17 +143,12 @@ app.post('/api/chat', async (req, res) => {
       toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
     };
 
-    console.log('🔍 Gemini request payload:', JSON.stringify(geminiRequest, null, 2));
-
     const openRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
       method : 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(geminiRequest)
     });
 
-    /*------------- handle model or error -------------*/
     if (!openRes.ok) {
       const error = await openRes.text();
       console.error('❌ Gemini API error:', error);
@@ -164,7 +157,6 @@ app.post('/api/chat', async (req, res) => {
 
     const data = await openRes.json();
     console.log('✅ Gemini API response received');
-    console.log('★ Raw Gemini reply →', JSON.stringify(data, null, 2));
 
     const candidate = data.candidates?.[0];
     const part = candidate?.content?.parts?.[0] || {};
@@ -172,32 +164,32 @@ app.post('/api/chat', async (req, res) => {
     if (part.functionCall) {
       console.log('🛠️ Tool call detected:', JSON.stringify(part.functionCall, null, 2));
       const name = part.functionCall.name;
-      const args = part.functionCall.args || {}; // Already an object in v1beta
+      const args = part.functionCall.args || {};
 
       try {
         if (name === 'searchFlights') {
-          console.log('✈️ Running searchFlights with', args);
+          console.log('🛫 Running searchFlights with SerpApi');
           const flights = await searchFlights(args);
           const formatted = formatFlights(flights, args.tripType || 'one_way');
           return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
         }
 
         if (name === 'searchHotels') {
-          console.log('🏨 Running searchHotels with', args);
+          console.log('🏨 Running searchHotels with SerpApi');
           const hotels = await searchHotels(args);
           const formatted = formatHotels(hotels);
           return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
         }
 
         if (name === 'searchPOI') {
-          console.log('📍 Running searchPOI with', args);
+          console.log('📍 Running searchPOI with SerpApi');
           const pois = await searchPOI(args);
           const formatted = formatPOI(pois);
           return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
         }
 
         if (name === 'getWeather') {
-          console.log('🌤️ Running getWeather with', args);
+          console.log('🌤️ Running getWeather');
           const w = await getWeather(args);
           const formatted = formatWeather(w);
           return res.json({ choices: [{ message: { role: 'assistant', content: formatted } }] });
@@ -206,11 +198,10 @@ app.post('/api/chat', async (req, res) => {
         console.log('⚠️ Unknown tool name:', name);
       } catch (e) {
         console.error('❌ Error processing tool call:', e);
-        return res.json({ choices: [{ message: { role: 'assistant', content: `Sorry, something went wrong executing that tool: ${e.message}` } }] });
+        return res.json({ choices: [{ message: { role: 'assistant', content: `Sorry, something went wrong: ${e.message}` } }] });
       }
     } else {
       const text = candidate?.content?.parts?.map(p => p.text).join('') || '';
-      console.log('📤 Sending regular Gemini response');
       return res.json({ choices: [{ message: { role: 'assistant', content: text } }] });
     }
     
@@ -220,98 +211,87 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
-/*───────────────────  formatter functions  ──────────────────*/
+/*───────────────────  Updated formatter functions  ──────────────────*/
 function formatFlights(json, tripType = 'one_way') {
-  console.log('🔄 Inside formatFlights function');
-  console.log('Input data:', JSON.stringify(json, null, 2));
-  
   if (!json?.data?.length) {
-    console.log('⚠️ No flight data to format');
-    return 'Certainly! I searched for flights but couldn\'t find any matching your criteria. Would you like to try different dates or airports?';
+    return 'I searched Google Flights but couldn\'t find any matching flights. Would you like to try different dates or airports?';
   }
   
   const flightTypeStr = tripType === 'round_trip' ? 'round-trip' : 'one-way';
-  
-  let formattedResponse = `Certainly! Here are the cheapest ${flightTypeStr} flights I found:\n\n`;
+  let response = `Here are the best ${flightTypeStr} flights I found on Google Flights:\n\n`;
   
   json.data.slice(0, 3).forEach((f, index) => {
-    console.log(`Processing flight ${index}:`, JSON.stringify(f, null, 2));
-    
     const price = f.price.total_amount;
     const currency = f.price.currency;
     const route = f.routes[0];
-    const airline = route.airline;
-    const stops = route.stops || 0;
-    const stopsStr = stops === 0 ? 'Nonstop' : `${stops} stop${stops > 1 ? 's' : ''}`;
+    const stops = route.stops === 0 ? 'Nonstop' : `${route.stops} stop${route.stops > 1 ? 's' : ''}`;
     
-    // Format times (remove timezone info for readability)
-    const departure = new Date(route.departureTime).toLocaleString();
-    const arrival = new Date(route.arrivalTime).toLocaleString();
-    
-    formattedResponse += `${index + 1}. **${currency} ${price}** - ${airline}\n`;
-    formattedResponse += `   • Outbound: ${departure} → ${arrival} (${route.duration}, ${stopsStr})\n`;
-    
-    // Add return flight details if available
-    if (f.returnRoute) {
-      const returnStops = f.returnRoute.stops || 0;
-      const returnStopsStr = returnStops === 0 ? 'Nonstop' : `${returnStops} stop${returnStops > 1 ? 's' : ''}`;
-      const returnDep = new Date(f.returnRoute.departureTime).toLocaleString();
-      const returnArr = new Date(f.returnRoute.arrivalTime).toLocaleString();
-      
-      formattedResponse += `   • Return: ${returnDep} → ${returnArr} (${f.returnRoute.duration}, ${returnStopsStr})\n`;
+    response += `${index + 1}. **${currency} ${price}** - ${route.airline}\n`;
+    response += `   • ${route.duration} flight, ${stops}\n`;
+    if (f.carbon_emissions) {
+      response += `   • ${f.carbon_emissions}kg CO₂ emissions\n`;
     }
-    
-    formattedResponse += `   • [More details](${f.booking_link})\n\n`;
+    response += `   • [Book this flight](${f.booking_link})\n\n`;
   });
   
-  formattedResponse += 'Prices and availability may change. Would you like information about hotels or attractions at your destination?';
-  
-  console.log('Final formatted response:', formattedResponse);
-  return formattedResponse;
+  response += 'These are real-time prices from Google Flights. Would you like me to find hotels or attractions at your destination?';
+  return response;
 }
 
 function formatHotels(json) {
-  if (!json?.data?.length) return 'Certainly! No hotels found for your search criteria.';
+  if (!json?.data?.length) {
+    return 'I searched Google Hotels but couldn\'t find any available hotels. Try different dates or locations?';
+  }
   
-  let out = 'Certainly! Here are some hotel options:\n\n';
+  let response = 'Here are great hotel options from Google Hotels:\n\n';
   
   json.data.slice(0, 3).forEach((h, idx) => {
     const offer = h.offers?.[0] || {};
     const price = offer.price?.total || 'N/A';
-    const currency = offer.price?.currency || '';
-    const link = offer.url || offer.bookingLink || '';
+    const rating = h.hotel.rating ? `⭐ ${h.hotel.rating}` : '';
     
-    out += `${idx + 1}. **${h.hotel?.name || 'Hotel'}** - ${currency} ${price}\n`;
-    out += `   • Location: ${h.hotel?.cityCode || 'N/A'}\n`;
-    if (link) out += `   • [View hotel](${link})\n`;
-    out += '\n';
+    response += `${idx + 1}. **${h.hotel.name}** ${rating}\n`;
+    response += `   • $${price} per night\n`;
+    if (h.hotel.reviews) response += `   • ${h.hotel.reviews} reviews\n`;
+    if (offer.url) response += `   • [View & book](${offer.url})\n`;
+    response += '\n';
   });
   
-  return out;
+  return response;
 }
 
 function formatPOI(list) {
-  if (!list?.length) return 'Certainly! No attractions found.';
-  let out = 'Certainly! Here are some attractions:\n\n';
+  if (!list?.length) return 'I couldn\'t find any attractions in that area.';
+  
+  let response = 'Here are some top attractions from Google:\n\n';
   list.slice(0, 5).forEach((p, idx) => {
-    out += `${idx + 1}. [${p.name}](${p.link})\n`;
+    const rating = p.rating ? `⭐ ${p.rating}` : '';
+    const reviews = p.reviews ? `(${p.reviews} reviews)` : '';
+    
+    response += `${idx + 1}. **${p.name}** ${rating} ${reviews}\n`;
+    if (p.address) response += `   • ${p.address}\n`;
+    if (p.website) response += `   • [Visit website](${p.website})\n`;
+    response += '\n';
   });
-  return out;
+  
+  return response;
 }
 
 function formatWeather(json) {
   if (!json?.daily?.length) return 'Weather data unavailable.';
-  let out = 'Certainly! Here is the upcoming forecast:\n\n';
+  
+  let response = 'Here\'s the weather forecast:\n\n';
   json.daily.slice(0, 3).forEach(d => {
     const date = new Date(d.dt * 1000).toISOString().slice(0, 10);
     const desc = d.weather?.[0]?.description || '';
     const min = Math.round(d.temp?.min);
     const max = Math.round(d.temp?.max);
-    out += `${date}: ${desc}, ${min}°C–${max}°C\n`;
+    response += `${date}: ${desc}, ${min}°C–${max}°C\n`;
   });
-  return out;
+  
+  return response;
 }
 
-/*───────────────────  boot  ───────────────────────*/
+/*───────────────────  Start server  ───────────────────────*/
 const PORT = process.env.PORT || 8787;
-app.listen(PORT, () => console.log(`🌐 API listening on port ${PORT}`));
+app.listen(PORT, () => console.log(`🌐 SerpApi-powered travel bot on port ${PORT}`));
