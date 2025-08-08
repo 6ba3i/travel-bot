@@ -4,7 +4,7 @@ import {
   Send, Trash2, Loader2, MapPin, Users, 
   Clock, Star, ChevronRight, Plane, Hotel, 
   CloudSun, Sparkles, Globe, Languages, Map,
-  Calendar, Thermometer, Eye, Navigation
+  Thermometer
 } from 'lucide-react';
 import { useChatStore } from '../store/useChat';
 import './TravelChatUI.css';
@@ -511,7 +511,7 @@ export default function TravelChatUI() {
         <div className="h-full bg-gray-900/50 backdrop-blur-xl border-r border-gray-800/50 flex flex-col">
           <div className="p-4 border-b border-gray-800/50">
             <button
-              onClick={newConversation}
+              onClick={() => newConversation()}
               className="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 
                        text-white font-medium hover:from-indigo-500 hover:to-purple-500 transition-all duration-200"
             >

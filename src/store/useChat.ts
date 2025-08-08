@@ -120,91 +120,96 @@ export const useChatStore = create<ChatState>()(
       },
 
       send: async (content: string, language?: string) => {
-        const state = get();
-        const activeLanguage = language || state.currentLanguage;
-        
-        if (state.loading) {
-          console.warn('⚠️ Already processing a request, ignoring new send');
-          return;
-        }
+  const state = get();
+  const activeLanguage = language || state.currentLanguage;
+  
+  if (state.loading) {
+    console.warn('⚠️ Already processing a request, ignoring new send');
+    return;
+  }
 
-        set({ loading: true });
+  set({ loading: true });
 
-        try {
-          let conv = state.conversations.find(c => c.id === state.activeId);
-          
-          // Create new conversation if none exists
-          if (!conv) {
-            const id = Date.now().toString();
-            conv = { 
-              id, 
-              title: 'New Chat', 
-              messages: [],
-              language: activeLanguage,
-              createdAt: Date.now(),
-              updatedAt: Date.now()
-            };
-            set(state => ({
-              conversations: [...state.conversations, conv],
-              activeId: id
-            }));
-          }
+  try {
+    let conv = state.conversations.find(c => c.id === state.activeId);
+    
+    // Create new conversation if none exists
+    if (!conv) {
+      const id = Date.now().toString();
+      const newConv: Conversation = { 
+        id, 
+        title: 'New Chat', 
+        messages: [],
+        language: activeLanguage,
+        createdAt: Date.now(),
+        updatedAt: Date.now()
+      };
+      
+      // Update state with new conversation
+      set(state => ({
+        conversations: [...state.conversations, newConv],
+        activeId: id
+      }));
+      
+      // Use the newly created conversation
+      conv = newConv;
+    }
 
-          // Add user message
-          const userMessage: Message = { 
-            role: 'user', 
-            content,
-            timestamp: Date.now()
-          };
-          conv.messages.push(userMessage);
-          conv.updatedAt = Date.now();
+    // Add user message
+    const userMessage: Message = { 
+      role: 'user', 
+      content,
+      timestamp: Date.now()
+    };
+    conv.messages.push(userMessage);
+    conv.updatedAt = Date.now();
 
-          // Update conversation language if specified
-          if (language && conv.language !== language) {
-            conv.language = language;
-          }
+    // Update conversation language if specified
+    if (language && conv.language !== language) {
+      conv.language = language;
+    }
 
-          set({ conversations: [...state.conversations] });
+    set({ conversations: [...state.conversations] });
 
-          console.log('🤖 Sending request to TravelBot API...');
-          
-          // Wait for complete JSON response before proceeding
-          const assistantContent = await callChatAPI(conv.messages, activeLanguage);
+    console.log('🤖 Sending request to TravelBot API...');
+    
+    // Wait for complete JSON response before proceeding
+    const assistantContent = await callChatAPI(conv.messages, activeLanguage);
 
-          // Add assistant response
-          const assistantMessage: Message = {
-            role: 'assistant',
-            content: assistantContent,
-            timestamp: Date.now()
-          };
-          conv.messages.push(assistantMessage);
-          conv.updatedAt = Date.now();
+    // Add assistant response
+    const assistantMessage: Message = {
+      role: 'assistant',
+      content: assistantContent,
+      timestamp: Date.now()
+    };
+    conv.messages.push(assistantMessage);
+    conv.updatedAt = Date.now();
 
-          // Update conversation title with first user message
-          if (conv.title === 'New Chat' && conv.messages.length >= 2) {
-            conv.title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
-          }
+    // Update conversation title with first user message
+    if (conv.title === 'New Chat' && conv.messages.length >= 2) {
+      conv.title = content.slice(0, 50) + (content.length > 50 ? '...' : '');
+    }
 
-          set({ conversations: [...state.conversations], loading: false });
+    set({ conversations: [...state.conversations], loading: false });
 
-        } catch (error) {
-          console.error('❌ Send error:', error);
-          
-          // Add error message to conversation
-          const conv = state.conversations.find(c => c.id === state.activeId);
-          if (conv) {
-            const errorMessage: Message = {
-              role: 'assistant',
-              content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
-              timestamp: Date.now()
-            };
-            conv.messages.push(errorMessage);
-            conv.updatedAt = Date.now();
-          }
+  } catch (error) {
+    console.error('❌ Send error:', error);
+    
+    // Add error message to conversation
+    const conv = state.conversations.find(c => c.id === state.activeId);
+    if (conv) {
+      const errorMessage: Message = {
+        role: 'assistant',
+        content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : 'Unknown error'}. Please try again.`,
+        timestamp: Date.now()
+      };
+      conv.messages.push(errorMessage);
+      conv.updatedAt = Date.now();
+    }
 
-          set({ conversations: [...state.conversations], loading: false });
-        }
-      },
+    set({ conversations: [...state.conversations], loading: false });
+  }
+},
 
       newConversation: (language?: string) => {
         const id = Date.now().toString();
@@ -236,39 +241,39 @@ export const useChatStore = create<ChatState>()(
       },
 
       deleteConversation: (id: string) => {
-        set(state => {
-          const remaining = state.conversations.filter(c => c.id !== id);
-          let activeId = state.activeId;
-          
-          // If deleting active conversation, switch to another or create new one
-          if (activeId === id) {
-            if (remaining.length === 0) {
-              const newId = Date.now().toString();
-              const newConv: Conversation = {
-                id: newId,
-                title: 'New Chat',
-                messages: [],
-                language: state.currentLanguage,
-                createdAt: Date.now(),
-                updatedAt: Date.now()
-              };
-              return {
-                conversations: [newConv],
-                activeId: newId
-              };
-            }
-            // Switch to most recently updated conversation
-            const mostRecent = remaining.sort((a, b) => b.updatedAt - a.updatedAt)[0];
-            activeId = mostRecent.id;
-          }
-          
-          return { 
-            conversations: remaining, 
-            activeId,
-            currentLanguage: remaining.find(c => c.id === activeId)?.language || state.currentLanguage
-          };
-        });
-      },
+  set(state => {
+    const remaining = state.conversations.filter(c => c.id !== id);
+    let activeId = state.activeId;
+    
+    // If deleting active conversation, switch to another or create new one
+    if (activeId === id) {
+      if (remaining.length === 0) {
+        const newId = Date.now().toString();
+        const newConv: Conversation = {
+          id: newId,
+          title: 'New Chat',
+          messages: [],
+          language: state.currentLanguage,
+          createdAt: Date.now(),
+          updatedAt: Date.now()
+        };
+        return {
+          conversations: [newConv], // Type: Conversation[]
+          activeId: newId
+        };
+      }
+      // Switch to most recently updated conversation
+      const mostRecent = remaining.sort((a, b) => b.updatedAt - a.updatedAt)[0];
+      activeId = mostRecent.id;
+    }
+    
+    return { 
+      conversations: remaining, // Type: Conversation[] (filter returns no undefined values)
+      activeId,
+      currentLanguage: remaining.find(c => c.id === activeId)?.language || state.currentLanguage
+    };
+  });
+},
 
       translateConversation: async (targetLanguage: string) => {
         const state = get();
