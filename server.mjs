@@ -1,4 +1,4 @@
-/*───────────────────  Updated server.mjs with SerpApi  ──────────────────*/
+/*───────────────────  Updated server.mjs with date context  ──────────────────*/
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
@@ -11,9 +11,21 @@ app.use(express.json());
 
 console.log('🚀 Server with SerpApi integration complete');
 
-/*───────────────────  Updated travel prompt  ───────────*/
+// Get current date for context
+const currentDate = new Date();
+const currentYear = currentDate.getFullYear();
+const currentMonth = currentDate.getMonth() + 1;
+const currentDay = currentDate.getDate();
+const formattedDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+
+console.log(`📅 Current date: ${formattedDate}`);
+
+/*───────────────────  Updated travel prompt with date context  ───────────*/
 const SYSTEM_PROMPT = `
 You are TravelBot, an intelligent travel assistant powered by Google's search data through SerpApi.
+
+CRITICAL CONTEXT: Today's date is ${formattedDate} (${currentDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}).
+The current year is ${currentYear}.
 
 CORE CAPABILITIES:
 - Flight searches using Google Flights data (searchFlights)
@@ -35,11 +47,17 @@ SMART PROCESSING RULES:
    - Los Angeles = LAX
    - And many others - use your knowledge!
 
-2. **Date Parsing**: Convert natural dates to YYYY-MM-DD automatically:
-   - "19th of July" or "July 19th" → determine year (current or next)
-   - "next Monday" → calculate exact date
-   - "in 2 weeks" → calculate exact date
-   - Always assume current year unless specified otherwise
+2. **Date Parsing - IMPORTANT**: 
+   - Today is ${formattedDate} (${currentYear})
+   - When user says a month/day without year, use ${currentYear} if the date is in the future, otherwise use ${currentYear + 1}
+   - Examples:
+     * "August 28th" → "${currentYear}-08-28" (if after today) or "${currentYear + 1}-08-28" (if before today)
+     * "July 19th" → determine if it's ${currentYear} or ${currentYear + 1} based on current date
+     * "next Monday" → calculate exact date from today (${formattedDate})
+     * "in 2 weeks" → calculate exact date from today
+     * "tomorrow" → add 1 day to ${formattedDate}
+   - NEVER use past dates for flight/hotel searches
+   - Always validate dates are in the future
 
 3. **Smart Defaults**:
    - Default to economy class unless specified
@@ -63,6 +81,7 @@ RESPONSE STYLE:
 - Offer related services (hotels after flights, attractions, weather)
 
 If you cannot determine a city/airport code or date, THEN ask for clarification.
+Remember: Today is ${formattedDate} - never search for dates in the past!
 `;
 
 /*───────────────────  Updated tool schema  ─────────────────*/
@@ -75,7 +94,7 @@ const functionDeclarations = [
       properties: {
         origin     : { type: 'string', description: 'IATA airport code, e.g. JFK' },
         destination: { type: 'string', description: 'IATA airport code, e.g. LAX' },
-        date       : { type: 'string', description: 'Departure date in YYYY-MM-DD format' },
+        date       : { type: 'string', description: 'Departure date in YYYY-MM-DD format (must be in the future)' },
         returnDate : { type: 'string', description: 'Return date in YYYY-MM-DD format for round trips' },
         adults     : { type: 'integer', default: 1, description: 'Number of adult passengers' },
         tripType   : { type: 'string', enum: ['one_way', 'round_trip'], default: 'one_way' }
@@ -90,7 +109,7 @@ const functionDeclarations = [
       type: 'object',
       properties: {
         location: { type: 'string', description: 'City name, e.g. "Paris" or "Barcelona"' },
-        checkIn : { type: 'string', description: 'Check-in date in YYYY-MM-DD format' },
+        checkIn : { type: 'string', description: 'Check-in date in YYYY-MM-DD format (must be in the future)' },
         checkOut: { type: 'string', description: 'Check-out date in YYYY-MM-DD format' },
         adults  : { type: 'integer', default: 2, description: 'Number of adults' },
         children: { type: 'integer', default: 0, description: 'Number of children' }
@@ -165,6 +184,14 @@ app.post('/api/chat', async (req, res) => {
       console.log('🛠️ Tool call detected:', JSON.stringify(part.functionCall, null, 2));
       const name = part.functionCall.name;
       const args = part.functionCall.args || {};
+
+      // Validate dates are in the future
+      if ((name === 'searchFlights' || name === 'searchHotels') && args.date) {
+        const searchDate = new Date(args.date || args.checkIn);
+        if (searchDate < currentDate) {
+          console.warn(`⚠️ Date ${args.date || args.checkIn} is in the past! Current date: ${formattedDate}`);
+        }
+      }
 
       try {
         if (name === 'searchFlights') {
