@@ -1,4 +1,4 @@
-// vite.config.ts
+// vite.config.ts - Fixed proxy configuration
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -6,11 +6,12 @@ export default defineConfig({
   plugins: [react()],
   server: {
     proxy: {
-      // if your Express route is app.post('/chat', …)
+      // Proxy API requests to your Express server
       '/api': {
-        target: 'http://localhost:8787',   // ← use your server port
+        target: 'http://localhost:3001',
         changeOrigin: true,
         secure: false,
+        rewrite: (path) => path, // Keep the /api prefix
       },
     },
   },
