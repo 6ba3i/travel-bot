@@ -1,7 +1,14 @@
-/* src/components/TravelChatUI.css - Enhanced with modern animations and styles */
+/* src/components/TravelChatUI.css - Fixed with proper hotel grid layout */
 
-/* Blob animations for background */
-@keyframes blob {
+/* Glass morphism base styles */
+.glass-effect {
+  background: rgba(31, 41, 55, 0.8);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+/* Animated background gradients */
+@keyframes animate-blob {
   0% {
     transform: translate(0px, 0px) scale(1);
   }
@@ -17,7 +24,7 @@
 }
 
 .animate-blob {
-  animation: blob 7s infinite;
+  animation: animate-blob 7s infinite;
 }
 
 .animation-delay-2000 {
@@ -28,80 +35,15 @@
   animation-delay: 4s;
 }
 
-.animation-delay-200 {
-  animation-delay: 200ms;
-}
-
-.animation-delay-400 {
-  animation-delay: 400ms;
-}
-
-/* Enhanced scrollbar styling */
-.overflow-y-auto::-webkit-scrollbar {
-  width: 6px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-track {
-  background: rgba(31, 41, 55, 0.3);
-  border-radius: 3px;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb {
-  background: rgba(99, 102, 241, 0.5);
-  border-radius: 3px;
-  transition: background 0.2s ease;
-}
-
-.overflow-y-auto::-webkit-scrollbar-thumb:hover {
-  background: rgba(99, 102, 241, 0.7);
-}
-
-/* Modern card hover effects */
+/* Enhanced travel card styles */
 .travel-card {
+  background: linear-gradient(135deg, rgba(31, 41, 55, 0.9) 0%, rgba(55, 65, 81, 0.8) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(75, 85, 99, 0.3);
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  transform-origin: center;
 }
 
 .travel-card:hover {
-  transform: translateY(-4px) scale(1.02);
-  box-shadow: 
-    0 20px 25px -5px rgba(0, 0, 0, 0.1),
-    0 10px 10px -5px rgba(0, 0, 0, 0.04),
-    0 0 0 1px rgba(99, 102, 241, 0.2);
-}
-
-/* Glassmorphism effects */
-.glass-effect {
-  background: rgba(17, 24, 39, 0.7);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-}
-
-/* Enhanced button animations */
-.btn-gradient {
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  transition: all 0.3s ease;
-  position: relative;
-  overflow: hidden;
-}
-
-.btn-gradient::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -100%;
-  width: 100%;
-  height: 100%;
-  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-  transition: left 0.5s ease;
-}
-
-.btn-gradient:hover::before {
-  left: 100%;
-}
-
-.btn-gradient:hover {
   transform: translateY(-2px);
   box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
 }
@@ -175,12 +117,21 @@
   animation: slideInUp 0.6s ease-out forwards;
 }
 
-/* Hotel grid layout enhancements */
+/* CRITICAL: Fixed Hotel grid layout - ensure hotels display in rows of 3 */
 .hotel-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
   max-width: 1200px;
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Force proper grid behavior on different screen sizes */
+@media (min-width: 640px) {
+  .hotel-grid {
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  }
 }
 
 @media (min-width: 768px) {
@@ -195,6 +146,19 @@
   }
 }
 
+@media (min-width: 1536px) {
+  .hotel-grid {
+    grid-template-columns: repeat(3, 1fr);
+    max-width: 1400px;
+  }
+}
+
+/* Ensure individual hotel cards take full width within grid */
+.hotel-grid > div {
+  width: 100%;
+  min-width: 0; /* Allow flex items to shrink below their content size */
+}
+
 /* Weather widget enhancements */
 .weather-day {
   transition: all 0.2s ease;
@@ -207,7 +171,7 @@
   transform: translateX(4px);
 }
 
-/* Language switcher animations */
+/* Language selector animations */
 .language-dropdown {
   opacity: 0;
   transform: translateY(-10px) scale(0.95);
@@ -266,32 +230,16 @@
   transform: scale(1.1);
 }
 
-/* Sidebar conversation item enhancements */
-.conversation-item {
-  transition: all 0.2s ease;
-  border-radius: 0.75rem;
-  position: relative;
-  overflow: hidden;
+/* Flight widget specific styles */
+.flight-widget {
+  max-width: 600px;
+  margin: 0 auto;
 }
 
-.conversation-item::before {
-  content: '';
-  position: absolute;
-  left: 0;
-  top: 0;
-  height: 100%;
-  width: 3px;
-  background: linear-gradient(to bottom, #667eea, #764ba2);
-  transform: scaleY(0);
-  transition: transform 0.2s ease;
-}
-
-.conversation-item.active::before {
-  transform: scaleY(1);
-}
-
-.conversation-item:hover {
-  transform: translateX(4px);
+.flight-route {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 /* Enhanced message bubbles */
@@ -326,25 +274,66 @@
   }
 }
 
+/* Enhanced tooltip styles */
+.tooltip {
+  position: relative;
+}
+
+.tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.9);
+  color: white;
+  padding: 0.5rem 0.75rem;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s ease;
+  z-index: 50;
+  margin-bottom: 0.5rem;
+}
+
+.tooltip:hover::after {
+  opacity: 1;
+}
+
 /* Responsive design improvements */
 @media (max-width: 768px) {
   .hotel-grid {
     grid-template-columns: 1fr;
     gap: 1rem;
+    padding: 0 1rem;
   }
   
   .flight-widget {
     padding: 1rem;
+    margin: 0 1rem;
   }
   
   .flight-route {
     flex-direction: column;
     text-align: center;
+    gap: 1rem;
   }
   
   .flight-route .arrow {
     transform: rotate(90deg);
     margin: 0.5rem 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .hotel-grid {
+    padding: 0 0.5rem;
+  }
+  
+  .hotel-grid > div {
+    min-width: 280px;
   }
 }
 
@@ -370,7 +359,6 @@
   }
   
   .travel-card,
-  .conversation-item,
   .weather-day {
     transition: none;
   }
@@ -407,29 +395,54 @@ input:focus-visible {
   background: linear-gradient(to bottom, #5a67d8, #6b46c1);
 }
 
-/* Enhanced tooltip styles */
-.tooltip {
-  position: relative;
+/* Ensure proper spacing for widgets */
+.space-y-6 > * + * {
+  margin-top: 1.5rem;
 }
 
-.tooltip::after {
-  content: attr(data-tooltip);
+/* Image placeholder improvements */
+.hotel-image-placeholder {
+  background: linear-gradient(45deg, #374151, #4b5563, #374151);
+  background-size: 400% 400%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Language dropdown positioning */
+.language-dropdown {
   position: absolute;
-  bottom: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(0, 0, 0, 0.9);
-  color: white;
-  padding: 0.5rem 0.75rem;
-  border-radius: 0.375rem;
-  font-size: 0.875rem;
-  white-space: nowrap;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity 0.2s ease;
+  top: 100%;
+  right: 0;
   z-index: 50;
+  min-width: 150px;
+  max-height: 200px;
+  overflow-y: auto;
 }
 
-.tooltip:hover::after {
-  opacity: 1;
+/* Ensure buttons maintain proper cursor and states */
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button:not(:disabled):hover {
+  cursor: pointer;
+}
+
+/* Widget container spacing */
+.widget-container {
+  margin: 1rem 0;
+}
+
+.widget-container:first-child {
+  margin-top: 0;
+}
+
+.widget-container:last-child {
+  margin-bottom: 0;
 }
