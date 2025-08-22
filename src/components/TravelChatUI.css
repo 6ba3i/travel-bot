@@ -1,101 +1,24 @@
-/* src/components/TravelChatUI.css - Fixed with proper hotel grid layout */
+/* src/components/TravelChatUI.css - Enhanced with proper grid layout */
 
 /* Glass morphism base styles */
 .glass-effect {
-  background: rgba(31, 41, 55, 0.8);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(75, 85, 99, 0.3);
-}
-
-/* Animated background gradients */
-@keyframes animate-blob {
-  0% {
-    transform: translate(0px, 0px) scale(1);
-  }
-  33% {
-    transform: translate(30px, -50px) scale(1.1);
-  }
-  66% {
-    transform: translate(-20px, 20px) scale(0.9);
-  }
-  100% {
-    transform: translate(0px, 0px) scale(1);
-  }
-}
-
-.animate-blob {
-  animation: animate-blob 7s infinite;
-}
-
-.animation-delay-2000 {
-  animation-delay: 2s;
-}
-
-.animation-delay-4000 {
-  animation-delay: 4s;
-}
-
-/* Enhanced travel card styles */
-.travel-card {
-  background: linear-gradient(135deg, rgba(31, 41, 55, 0.9) 0%, rgba(55, 65, 81, 0.8) 100%);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(75, 85, 99, 0.3);
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.travel-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.4);
-}
-
-/* Custom animations for loading states */
-@keyframes pulse-slow {
-  0%, 100% {
-    opacity: 0.8;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
-.animate-pulse-slow {
-  animation: pulse-slow 3s ease-in-out infinite;
-}
-
-/* Enhanced typing indicator */
-@keyframes bounce-subtle {
-  0%, 20%, 53%, 80%, 100% {
-    animation-timing-function: cubic-bezier(0.215, 0.61, 0.355, 1);
-    transform: translate3d(0, 0, 0);
-  }
-  40%, 43% {
-    animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-    transform: translate3d(0, -8px, 0);
-  }
-  70% {
-    animation-timing-function: cubic-bezier(0.755, 0.05, 0.855, 0.06);
-    transform: translate3d(0, -4px, 0);
-  }
-  90% {
-    transform: translate3d(0, -2px, 0);
-  }
-}
-
-.bounce-subtle {
-  animation: bounce-subtle 1.5s infinite;
-}
-
-/* Modern input field styles */
-.modern-input {
-  background: rgba(31, 41, 55, 0.6);
+  background: rgba(17, 24, 39, 0.7);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(75, 85, 99, 0.5);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+}
+
+/* Modern input styles */
+.modern-input {
+  background: rgba(31, 41, 55, 0.5);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(75, 85, 99, 0.3);
   transition: all 0.3s ease;
 }
 
 .modern-input:focus {
-  background: rgba(31, 41, 55, 0.8);
-  border-color: rgba(99, 102, 241, 0.6);
+  background: rgba(31, 41, 55, 0.7);
+  border-color: rgba(99, 102, 241, 0.5);
   box-shadow: 
     0 0 0 3px rgba(99, 102, 241, 0.1),
     0 4px 6px -1px rgba(0, 0, 0, 0.1);
@@ -117,49 +40,68 @@
   animation: slideInUp 0.6s ease-out forwards;
 }
 
-/* CRITICAL: Fixed Hotel grid layout - ensure hotels display in rows of 3 */
+/* CRITICAL: Fixed grid layout for Hotels, POIs, and Restaurants */
 .hotel-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
-  max-width: 1200px;
-  margin: 0 auto;
   width: 100%;
+  padding: 0.5rem 0;
 }
 
-/* Force proper grid behavior on different screen sizes */
-@media (min-width: 640px) {
+/* Mobile: 1 column */
+@media (max-width: 639px) {
   .hotel-grid {
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    grid-template-columns: 1fr;
+    padding: 0 0.5rem;
   }
 }
 
-@media (min-width: 768px) {
+/* Tablet: 2 columns */
+@media (min-width: 640px) and (max-width: 1023px) {
   .hotel-grid {
     grid-template-columns: repeat(2, 1fr);
   }
 }
 
+/* Desktop: 3 columns */
 @media (min-width: 1024px) {
   .hotel-grid {
     grid-template-columns: repeat(3, 1fr);
+    max-width: 1200px;
+    margin: 0 auto;
   }
 }
 
+/* Large Desktop: 3 columns with more spacing */
 @media (min-width: 1536px) {
   .hotel-grid {
     grid-template-columns: repeat(3, 1fr);
     max-width: 1400px;
+    gap: 2rem;
   }
 }
 
-/* Ensure individual hotel cards take full width within grid */
-.hotel-grid > div {
+/* Ensure cards take full width within grid cells */
+.hotel-grid > * {
   width: 100%;
-  min-width: 0; /* Allow flex items to shrink below their content size */
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-/* Weather widget enhancements */
+/* Flight widget specific styles */
+.flight-widget {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+/* Weather widget specific styles */
+.weather-widget {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* Weather day hover effects */
 .weather-day {
   transition: all 0.2s ease;
   border-radius: 0.75rem;
@@ -183,7 +125,7 @@
   transform: translateY(0) scale(1);
 }
 
-/* Map button styling */
+/* Map button styling with enhanced hover */
 .map-button {
   backdrop-filter: blur(8px);
   transition: all 0.2s ease;
@@ -216,7 +158,7 @@
   left: 100%;
 }
 
-/* Enhanced star rating animations */
+/* Star rating animations */
 .star-rating {
   display: flex;
   gap: 0.125rem;
@@ -228,18 +170,6 @@
 
 .star-rating:hover .star {
   transform: scale(1.1);
-}
-
-/* Flight widget specific styles */
-.flight-widget {
-  max-width: 600px;
-  margin: 0 auto;
-}
-
-.flight-route {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
 }
 
 /* Enhanced message bubbles */
@@ -258,7 +188,21 @@
   border: 1px solid rgba(75, 85, 99, 0.3);
 }
 
-/* Loading states for images */
+/* Loading animations */
+@keyframes bounce-subtle {
+  0%, 80%, 100% {
+    transform: translateY(0);
+  }
+  40% {
+    transform: translateY(-8px);
+  }
+}
+
+.bounce-subtle {
+  animation: bounce-subtle 1.5s infinite;
+}
+
+/* Image loading states */
 .image-loading {
   background: linear-gradient(90deg, #374151 25%, #4b5563 50%, #374151 75%);
   background-size: 200% 100%;
@@ -274,7 +218,19 @@
   }
 }
 
-/* Enhanced tooltip styles */
+/* Card hover effects */
+.travel-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.travel-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 
+    0 20px 25px -5px rgba(0, 0, 0, 0.1),
+    0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Tooltip styles */
 .tooltip {
   position: relative;
 }
@@ -302,39 +258,105 @@
   opacity: 1;
 }
 
-/* Responsive design improvements */
+/* Responsive adjustments for smaller screens */
 @media (max-width: 768px) {
   .hotel-grid {
-    grid-template-columns: 1fr;
     gap: 1rem;
-    padding: 0 1rem;
   }
   
   .flight-widget {
     padding: 1rem;
-    margin: 0 1rem;
+    margin: 0 0.5rem;
   }
   
-  .flight-route {
-    flex-direction: column;
-    text-align: center;
-    gap: 1rem;
+  .weather-widget {
+    padding: 1rem;
+    margin: 0 0.5rem;
   }
   
-  .flight-route .arrow {
-    transform: rotate(90deg);
-    margin: 0.5rem 0;
+  .weather-widget .grid {
+    grid-template-columns: repeat(3, 1fr);
   }
 }
 
-@media (max-width: 640px) {
-  .hotel-grid {
-    padding: 0 0.5rem;
+/* Custom scrollbar */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: rgba(31, 41, 55, 0.5);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(to bottom, #667eea, #764ba2);
+  border-radius: 4px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(to bottom, #5a67d8, #6b46c1);
+}
+
+/* Widget container spacing */
+.widget-container {
+  margin: 1rem 0;
+}
+
+/* Image placeholder with gradient animation */
+.image-placeholder {
+  background: linear-gradient(45deg, #374151, #4b5563, #374151);
+  background-size: 400% 400%;
+  animation: gradient-shift 3s ease infinite;
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Button states */
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+button:not(:disabled):hover {
+  cursor: pointer;
+}
+
+/* Ensure proper spacing between different widget types */
+.space-y-4 > * + * {
+  margin-top: 1rem;
+}
+
+/* Blur background animation */
+@keyframes blob {
+  0% {
+    transform: translate(0px, 0px) scale(1);
   }
-  
-  .hotel-grid > div {
-    min-width: 280px;
+  33% {
+    transform: translate(30px, -50px) scale(1.1);
   }
+  66% {
+    transform: translate(-20px, 20px) scale(0.9);
+  }
+  100% {
+    transform: translate(0px, 0px) scale(1);
+  }
+}
+
+.animate-blob {
+  animation: blob 7s infinite;
+}
+
+.animation-delay-2000 {
+  animation-delay: 2s;
+}
+
+.animation-delay-4000 {
+  animation-delay: 4s;
 }
 
 /* High contrast mode support */
@@ -376,73 +398,67 @@ input:focus-visible {
   outline-offset: 2px;
 }
 
-/* Custom scrollbar for webkit browsers */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 8px;
+/* Print styles */
+@media print {
+  .hotel-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .glass-effect {
+    background: white;
+    border: 1px solid black;
+  }
+  
+  button {
+    display: none;
+  }
 }
 
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(31, 41, 55, 0.5);
-  border-radius: 4px;
+/* Smooth transitions for all interactive elements */
+* {
+  transition-property: background-color, border-color, color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: linear-gradient(to bottom, #667eea, #764ba2);
-  border-radius: 4px;
+/* Override transitions for elements that need different timing */
+.travel-card,
+.hotel-grid > *,
+.flight-widget,
+.weather-widget {
+  transition-property: all;
+  transition-duration: 300ms;
 }
 
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: linear-gradient(to bottom, #5a67d8, #6b46c1);
+/* Ensure images maintain aspect ratio */
+img {
+  max-width: 100%;
+  height: auto;
+  object-fit: cover;
 }
 
-/* Ensure proper spacing for widgets */
-.space-y-6 > * + * {
-  margin-top: 1.5rem;
+/* Line clamp utilities for text truncation */
+.line-clamp-1 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  line-clamp: 1;
+  -webkit-box-orient: vertical;
 }
 
-/* Image placeholder improvements */
-.hotel-image-placeholder {
-  background: linear-gradient(45deg, #374151, #4b5563, #374151);
-  background-size: 400% 400%;
-  animation: gradient-shift 3s ease infinite;
+.line-clamp-2 {
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
-@keyframes gradient-shift {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
-}
-
-/* Language dropdown positioning */
-.language-dropdown {
-  position: absolute;
-  top: 100%;
-  right: 0;
-  z-index: 50;
-  min-width: 150px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-
-/* Ensure buttons maintain proper cursor and states */
-button:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-button:not(:disabled):hover {
-  cursor: pointer;
-}
-
-/* Widget container spacing */
-.widget-container {
-  margin: 1rem 0;
-}
-
-.widget-container:first-child {
-  margin-top: 0;
-}
-
-.widget-container:last-child {
-  margin-bottom: 0;
-}
+/* Z-index management */
+.z-0 { z-index: 0; }
+.z-10 { z-index: 10; }
+.z-20 { z-index: 20; }
+.z-30 { z-index: 30; }
+.z-40 { z-index: 40; }
+.z-50 { z-index: 50; }
