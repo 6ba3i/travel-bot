@@ -1,162 +1,140 @@
-// server.mjs - Enhanced with better stability and error handling
+// server.mjs - Enhanced with POI and Restaurant support
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
 import fetch from 'node-fetch';
-import { searchFlights, searchHotels, searchPOI, getWeather } from './src/lib/serpApi.js';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import { searchFlights, searchHotels, searchPOI, searchRestaurants, getWeather } from './src/lib/serpApi.js';
 
 const app = express();
+const PORT = process.env.PORT || 3001;
 
-// Enhanced middleware with better error handling
-app.use(cors({
-  origin: true,
-  credentials: true
-}));
+// Check for required environment variables
+if (!process.env.GEMINI_API_KEY) {
+  console.error('❌ ERROR: GEMINI_API_KEY is missing in .env file!');
+  console.error('   Please add your Gemini API key to the .env file');
+  console.error('   Get one at: https://aistudio.google.com/app/apikey');
+  process.exit(1);
+}
+
+if (!process.env.SERPAPI_KEY) {
+  console.warn('⚠️  WARNING: SERPAPI_KEY is missing in .env file!');
+  console.warn('   Flight, hotel, and POI searches will not work');
+  console.warn('   Get one at: https://serpapi.com/manage-api-key');
+}
+
+// Initialize Gemini
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+console.log('✅ Gemini API initialized');
+
+// Enhanced middleware
+app.use(cors({ origin: true, credentials: true }));
 app.use(express.json({ limit: '10mb' }));
 
-// Add request timeout middleware
+// Request timeout middleware
 app.use((req, res, next) => {
-  req.setTimeout(30000); // 30 second timeout
+  req.setTimeout(30000);
   res.setTimeout(30000);
   next();
 });
 
-// Add keep-alive for connections
-app.use((req, res, next) => {
-  res.setHeader('Connection', 'keep-alive');
-  next();
-});
+console.log('🚀 Enhanced travel server with POI and Restaurant support');
 
-console.log('🚀 Enhanced travel server with improved stability');
-
-// Get current date for context
+// Get current date
 const currentDate = new Date();
-const currentYear = currentDate.getFullYear();
-const currentMonth = currentDate.getMonth() + 1;
-const currentDay = currentDate.getDate();
-const formattedDate = `${currentYear}-${String(currentMonth).padStart(2, '0')}-${String(currentDay).padStart(2, '0')}`;
+const formattedDate = `${currentDate.getFullYear()}-${String(currentDate.getMonth() + 1).padStart(2, '0')}-${String(currentDate.getDate()).padStart(2, '0')}`;
 
-console.log(`📅 Current date: ${formattedDate}`);
-
-/*───────────────────  Enhanced multilingual system prompt with global airport codes  ───────────*/
+// Enhanced system prompt with POI and Restaurant instructions
 const SYSTEM_PROMPT = `
 You are TravelBot, an intelligent multilingual travel assistant powered by Google's search data through SerpApi.
 
 CRITICAL CONTEXT: 
-- Today's date is ${formattedDate} (${currentDate.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })})
-- Current year is ${currentYear}
-- You support multiple languages: English, French, Chinese, Arabic, Spanish, German, Italian, Japanese, and can auto-detect user language
-- You handle multiple currencies: USD, EUR, MAD (Moroccan Dirham), CNY (Chinese Yuan), JPY, GBP
+- Today's date is ${formattedDate}
+- You support multiple languages and auto-detect user language
+- You handle flights, hotels, restaurants, attractions, and weather
 
 CORE CAPABILITIES:
-- Flight searches using Google Flights data (searchFlights) with airline direct booking links
-- Hotel searches using Google Hotels data (searchHotels) with images and maps in 3-column grid layout
-- Points of interest using Google Local data (searchPOI) with Google Maps integration
-- Weather forecasts (getWeather) with 7-10 day forecasts and auto-location detection with coordinates lookup
+- Flight searches using Google Flights (searchFlights)
+- Hotel searches with images and maps - displays in 3-column grid (searchHotels)
+- Points of interest and attractions - displays in 3-column grid (searchPOI)
+- Restaurant searches with ratings and cuisines - displays in 3-column grid (searchRestaurants)
+- Weather forecasts with 7-10 day predictions (getWeather)
 
-LANGUAGE & RESPONSE HANDLING:
-1. **Auto-detect user language** from their message and respond in the same language throughout
-2. **Complete language translation**: When responding in any language, translate EVERYTHING except "TravelBot"
-3. **Widget formatting**: Always format flight, hotel, and weather data as proper widgets for visual display
-4. **Currency conversion**: When users mention prices in any currency, convert and display both original and USD equivalent
-
-CRITICAL: GLOBAL AIRPORT CODE CONVERSION RULES
-When calling searchFlights, you MUST convert city names from ANY LANGUAGE to proper IATA airport codes:
-
-INTERNATIONAL CITY NAME MAPPINGS (handle names in any language):
-- Casablanca/كازابلانكا/卡萨布兰卡 → CMN
-- Barcelona/巴塞罗那 → BCN  
-- Paris/باريس/巴黎/パリ → CDG
-- London/لندن/伦敦/ロンドン → LHR
-- Madrid/مدريد/马德里/マドリード → MAD
-- New York/نيويورك/纽约/ニューヨーク → JFK
-- Tokyo/طوكيو/东京/東京 → NRT
-- Dubai/دبي/迪拜/ドバイ → DXB
-- Istanbul/إسطنبول/伊斯坦布尔/イスタンブール → IST
-- Los Angeles/لوس أنجلوس/洛杉矶/ロサンゼルス → LAX
-- Rome/روما/罗马/ローマ → FCO
-- Amsterdam/أمستردام/阿姆斯特丹/アムステルダム → AMS
-- Frankfurt/فرانكفورت/法兰克福/フランクフルト → FRA
-- Zurich/زيوريخ/苏黎世/チューリッヒ → ZUR
-- Milan/ميلانو/米兰/ミラノ → MXP
-- Berlin/برلين/柏林/ベルリン → BER
-- Munich/ميونيخ/慕尼黑/ミュンヘン → MUC
-- Vienna/فيينا/维也纳/ウィーン → VIE
-- Brussels/بروكسل/布鲁塞尔/ブリュッセル → BRU
-- Lisbon/لشبونة/里斯本/リスボン → LIS
-- Moscow/موسكو/莫斯科/モスクワ → SVO
-- Beijing/بكين/北京/北京 → PEK
-- Shanghai/شنغهاي/上海/上海 → PVG
-- Hong Kong/هونغ كونغ/香港/香港 → HKG
-- Singapore/سنغافورة/新加坡/シンガポール → SIN
-- Bangkok/بانكوك/曼谷/バンコク → BKK
-- Seoul/سول/首尔/ソウル → ICN
-- Mumbai/مومباي/孟买/ムンバイ → BOM
-- Delhi/دلهي/德里/デリー → DEL
-- Sydney/سيدني/悉尼/シドニー → SYD
-- Toronto/تورونتو/多伦多/トロント → YYZ
-- Mexico City/مكسيكو سيتي/墨西哥城/メキシコシティ → MEX
-- São Paulo/ساو باولو/圣保罗/サンパウロ → GRU
-- Buenos Aires/بوينس آيرس/布宜诺斯艾利斯/ブエノスアイレス → EZE
-- Cape Town/كيب تاون/开普敦/ケープタウン → CPT
-- Cairo/القاهرة/开罗/カイロ → CAI
-- Marrakech/مراكش/马拉喀什/マラケシュ → RAK
-- Rabat/الرباط/拉巴特/ラバト → RBA
-- Fez/فاس/非斯/フェズ → FEZ
-- Tangier/طنجة/丹吉尔/タンジール → TNG
-
-CRITICAL: WEATHER AND LOCATION SERVICES
-When users ask for weather for ANY location worldwide, you MUST:
-1. Use getWeather tool with the location name (not coordinates)
-2. The backend will automatically find coordinates for any major city
-3. Format weather as proper widgets, not text
-4. Include location name in local language when possible
-
-CRITICAL: WIDGET FORMATTING RULES
-When you receive flight, hotel, or weather data, you MUST format responses with proper widgets:
+WIDGET FORMATTING RULES:
 
 FOR FLIGHTS:
-1. Provide brief text response in user's language
-2. Format EACH flight as a widget using this exact structure:
 [FLIGHT_WIDGET]
 {
-  "airline": "Royal Air Maroc",
-  "flightNumber": "AT 123",
+  "airline": "Airline Name",
+  "flightNumber": "XX 123",
   "price": "USD 450",
-  "departure": "Mohammed V International Airport",
-  "arrival": "Barcelona-El Prat Airport", 
+  "departure": "Airport Name",
+  "arrival": "Airport Name", 
   "departureTime": "14:30",
   "arrivalTime": "18:45",
   "duration": "4h 15m",
   "stops": 0,
-  "bookingLink": "https://www.royalairmaroc.com",
+  "bookingLink": "https://...",
   "carbonEmissions": "285kg"
 }
 [/FLIGHT_WIDGET]
 
-FOR HOTELS:
-1. Provide brief text response in user's language
-2. Format EACH hotel as a widget using this exact structure (hotels will display in 3-column grid automatically):
+FOR HOTELS (displays in 3-column grid):
 [HOTEL_WIDGET]
 {
-  "name": "Hotel Barceló Raval",
-  "rating": 4.2,
+  "name": "Hotel Name",
+  "rating": 4.5,
   "reviews": 1250,
   "price": "$180",
-  "location": "Barcelona",
-  "link": "https://hotels.google.com/...",
+  "location": "City",
+  "link": "https://...",
   "image": "https://image-url.jpg",
-  "mapUrl": "https://maps.google.com/maps?q=41.3851,2.1734",
-  "address": "Rambla del Raval, 17-21, Barcelona"
+  "mapUrl": "https://maps.google.com/...",
+  "address": "Full Address"
 }
 [/HOTEL_WIDGET]
 
+FOR POIs (displays in 3-column grid):
+[POI_WIDGET]
+{
+  "name": "Attraction Name",
+  "rating": 4.7,
+  "reviews": 5000,
+  "type": "Museum/Park/Monument",
+  "price": "$25 or Free",
+  "address": "Full Address",
+  "hours": "9:00 AM - 6:00 PM",
+  "image": "https://image-url.jpg",
+  "mapUrl": "https://maps.google.com/...",
+  "description": "Brief description",
+  "website": "https://..."
+}
+[/POI_WIDGET]
+
+FOR RESTAURANTS (displays in 3-column grid):
+[RESTAURANT_WIDGET]
+{
+  "name": "Restaurant Name",
+  "rating": 4.3,
+  "reviews": 800,
+  "cuisine": "Italian/Chinese/Local",
+  "priceLevel": "$$",
+  "address": "Full Address",
+  "hours": "Hours of operation",
+  "image": "https://image-url.jpg",
+  "mapUrl": "https://maps.google.com/...",
+  "phone": "+1234567890",
+  "website": "https://...",
+  "dineIn": true,
+  "takeout": true,
+  "delivery": false
+}
+[/RESTAURANT_WIDGET]
+
 FOR WEATHER:
-1. Provide brief text response in user's language
-2. Format weather as a widget using this exact structure:
 [WEATHER_WIDGET]
 {
-  "location": "Casablanca",
+  "location": "City Name",
   "current": {
     "temp": 24,
     "condition": "Partly cloudy",
@@ -173,94 +151,40 @@ FOR WEATHER:
       "condition": "Sunny",
       "icon": "sunny",
       "precipitation": 0
-    },
-    {
-      "day": "Tomorrow",
-      "date": "2025-08-10",
-      "high": 26,
-      "low": 17,
-      "condition": "Partly cloudy",
-      "icon": "partly-cloudy",
-      "precipitation": 10
     }
   ]
 }
 [/WEATHER_WIDGET]
 
-SMART PROCESSING RULES:
-1. **Date Parsing - IMPORTANT**: 
-   - Today is ${formattedDate}
-   - Parse natural dates: "August 18th" → "${currentYear}-08-18" or "${currentYear + 1}-08-18"
-   - NEVER use past dates for searches
-   - Always validate dates are in the future
-
-2. **Enhanced Data Display**:
-   - Hotels: MUST display in 3-column grid layout using proper widgets
-   - Include hotel images from Google Images in the image area (not text)
-   - Add map buttons linking to Google Maps
-   - Weather: Display as interactive widget with icons and 7-day forecast
-   - Flights: Show proper times (24-hour format: HH:MM) and airline direct booking links
-
-3. **Location Handling**:
-   - For any location worldwide, the backend can find coordinates automatically
-   - You don't need to worry about coordinate fallbacks
-   - Always use location names in the user's language when possible
-
-4. **Response Format**:
-   - Wait for complete JSON responses before answering
-   - Provide rich widgets with images and map links
-   - Include booking links that go directly to airline websites when available
-   - Handle currency conversions automatically
-
-5. **Immediate Action**: Search immediately when you have enough information
-
-MULTILINGUAL RESPONSE EXAMPLES:
-
-English:
-"I found great flights from Casablanca to Barcelona on August 18th! Here are the best options:
-
-[FLIGHT_WIDGET]..."
-
-French:
-"J'ai trouvé d'excellents vols de Casablanca à Barcelone le 18 août ! Voici les meilleures options :
-
-[FLIGHT_WIDGET]..."
-
-Arabic:
-"وجدت رحلات رائعة من الدار البيضاء إلى برشلونة في 18 أغسطس! إليك أفضل الخيارات:
-
-[FLIGHT_WIDGET]..."
-
-Chinese:
-"我找到了8月18日从卡萨布兰卡到巴塞罗那的优质航班！以下是最佳选择：
-
-[FLIGHT_WIDGET]..."
+IMPORTANT DISPLAY RULES:
+1. Hotels, POIs, and Restaurants MUST display in a 3-column grid layout
+2. Always include images from Google Images for visual appeal
+3. Include Google Maps links for all locations
+4. Format all widgets properly with complete JSON structure
+5. When user asks for itinerary or places to visit, use searchPOI
+6. When user asks for restaurants or where to eat, use searchRestaurants
+7. Search immediately when you have enough information
 
 RESPONSE STYLE:
 - Be enthusiastic and helpful in the user's detected language
-- Search immediately when possible
-- Provide visual widgets with images and maps
-- Include real booking links and current pricing
-- Offer related services naturally
-- Translate ALL interface elements to the user's language
-- Use proper widgets for ALL data types (flights, hotels, weather)
-
-REMEMBER: The backend now provides properly formatted flight times, airline booking links, hotel images, and automatic coordinate lookup for any location worldwide.
+- Provide rich visual widgets with images
+- Search for real data immediately - no sample data
+- Hotels, POIs, and Restaurants display in rows of 3 automatically
 `;
 
-/*───────────────────  Enhanced tool schema  ───────────*/
+// Enhanced tool schema
 const functionDeclarations = [
   {
     name: 'searchFlights',
-    description: 'Search for flight prices and booking information using Google Flights with airline direct booking',
+    description: 'Search for flights with prices and booking links',
     parameters: {
       type: 'object',
       properties: {
-        origin: { type: 'string', description: 'IATA airport code, e.g. CMN for Casablanca' },
-        destination: { type: 'string', description: 'IATA airport code, e.g. BCN for Barcelona' },
-        date: { type: 'string', description: 'Departure date in YYYY-MM-DD format' },
-        returnDate: { type: 'string', description: 'Return date in YYYY-MM-DD format for round trips' },
-        adults: { type: 'integer', default: 1, description: 'Number of adult passengers' },
+        origin: { type: 'string', description: 'Origin city or airport code' },
+        destination: { type: 'string', description: 'Destination city or airport code' },
+        date: { type: 'string', description: 'Departure date YYYY-MM-DD' },
+        returnDate: { type: 'string', description: 'Return date for round trips' },
+        adults: { type: 'integer', default: 1 },
         tripType: { type: 'string', enum: ['one_way', 'round_trip'], default: 'one_way' }
       },
       required: ['origin', 'destination', 'date']
@@ -268,187 +192,206 @@ const functionDeclarations = [
   },
   {
     name: 'searchHotels',
-    description: 'Find hotels with images and map integration using Google Hotels - displays in 3-column grid',
+    description: 'Find hotels with images and maps - displays in 3-column grid',
     parameters: {
       type: 'object',
       properties: {
-        location: { type: 'string', description: 'City name or specific location in any language, e.g. Barcelona, Tokyo, كازابلانكا' },
-        checkIn: { type: 'string', description: 'Check-in date in YYYY-MM-DD format' },
-        checkOut: { type: 'string', description: 'Check-out date in YYYY-MM-DD format' },
-        adults: { type: 'integer', default: 2, description: 'Number of adults' },
-        children: { type: 'integer', default: 0, description: 'Number of children' }
+        location: { type: 'string', description: 'City or area name' },
+        checkIn: { type: 'string', description: 'Check-in date YYYY-MM-DD' },
+        checkOut: { type: 'string', description: 'Check-out date YYYY-MM-DD' },
+        adults: { type: 'integer', default: 2 },
+        children: { type: 'integer', default: 0 }
       },
       required: ['location', 'checkIn', 'checkOut']
     }
   },
   {
     name: 'searchPOI',
-    description: 'Search points of interest and attractions near a location with Google Maps integration',
+    description: 'Find tourist attractions, landmarks, and places to visit - displays in 3-column grid',
     parameters: {
       type: 'object',
       properties: {
-        location: { type: 'string', description: 'City name in any language' },
-        query: { type: 'string', description: 'Type of attractions, e.g. tourist attractions, restaurants, museums', default: 'tourist attractions' },
-        limit: { type: 'integer', default: 10 }
+        location: { type: 'string', description: 'City or area name' },
+        query: { type: 'string', description: 'Type of attractions to search', default: 'tourist attractions must visit' },
+        limit: { type: 'integer', default: 9 }
+      },
+      required: ['location']
+    }
+  },
+  {
+    name: 'searchRestaurants',
+    description: 'Find restaurants with ratings and images - displays in 3-column grid',
+    parameters: {
+      type: 'object',
+      properties: {
+        location: { type: 'string', description: 'City or area name' },
+        cuisine: { type: 'string', description: 'Type of cuisine (Italian, Chinese, etc)' },
+        priceRange: { type: 'string', description: 'Price range ($, $$, $$$)' },
+        limit: { type: 'integer', default: 9 }
       },
       required: ['location']
     }
   },
   {
     name: 'getWeather',
-    description: 'Get 7 day weather forecast with automatic coordinate lookup for any location worldwide',
+    description: 'Get weather forecast with 7-10 day predictions',
     parameters: {
       type: 'object',
       properties: {
-        location: { type: 'string', description: 'City name in any language for weather forecast, e.g. Casablanca, Bali, كازابلانكا, 巴厘岛' }
+        location: { type: 'string', description: 'City name' }
       },
       required: ['location']
     }
   }
 ];
 
-const tools = [{ functionDeclarations: functionDeclarations }];
-
-/*───────────────────  Enhanced chat route with better error handling  ───────────*/
+// Main chat endpoint
 app.post('/api/chat', async (req, res) => {
-  console.log('📥 Received chat request');
-  const { messages } = req.body;
-
-  // Set response headers to prevent timeout issues
-  res.setHeader('Content-Type', 'application/json');
-  res.setHeader('Cache-Control', 'no-cache');
-
   try {
-    const geminiRequest = {
-      systemInstruction: { parts: [{ text: SYSTEM_PROMPT }] },
-      contents: messages.map(m => ({
-        role : m.role === 'assistant' ? 'model' : 'user',
-        parts: [{ text: m.content }]
-      })),
-      tools,
-      toolConfig: { functionCallingConfig: { mode: 'AUTO' } }
-    };
+    const { message, language = 'en' } = req.body;
+    console.log(`\n💬 New message in ${language}: "${message}"`);
 
-    // Enhanced fetch with timeout and retry logic
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 25000); // 25 second timeout
+    if (!message) {
+      return res.status(400).json({ 
+        error: 'Message is required',
+        response: 'Please provide a message to process.' 
+      });
+    }
 
-    const openRes = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method : 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'User-Agent': 'TravelBot/1.0'
-      },
-      body: JSON.stringify(geminiRequest),
-      signal: controller.signal
+    // Initialize the model with system instructions
+    const model = genAI.getGenerativeModel({
+      model: 'gemini-1.5-flash',
+      tools: [{ functionDeclarations }],
+      systemInstruction: SYSTEM_PROMPT
     });
 
-    clearTimeout(timeoutId);
+    console.log('🤖 Sending to Gemini...');
+    const chat = model.startChat();
+    const result = await chat.sendMessage(message);
+    const response = result.response;
 
-    if (!openRes.ok) {
-      const error = await openRes.text();
-      console.error('❌ Gemini API error:', error);
-      return res.status(500).json({ 
-        error: 'AI service temporarily unavailable. Please try again in a moment.' 
-      });
-    }
+    let finalResponse = response.text();
+    const calls = response.functionCalls();
 
-    const data = await openRes.json();
-    console.log('✅ Gemini API response received');
-
-    const candidate = data.candidates?.[0];
-    const part = candidate?.content?.parts?.[0];
-
-    if (part?.functionCall) {
-      console.log('🛠️ Tool call detected:', JSON.stringify(part.functionCall, null, 2));
+    if (calls && calls.length > 0) {
+      console.log(`🔧 Function calls requested: ${calls.map(c => c.name).join(', ')}`);
       
-      const { name: functionName, args } = part.functionCall;
-      let toolResult;
-
-      // Execute the appropriate tool function with enhanced error handling
-      try {
-        switch (functionName) {
-          case 'searchFlights':
-            toolResult = await searchFlights(args);
-            break;
-          case 'searchHotels':
-            toolResult = await searchHotels(args);
-            break;
-          case 'searchPOI':
-            toolResult = await searchPOI(args);
-            break;
-          case 'getWeather':
-            toolResult = await getWeather(args);
-            break;
-          default:
-            console.error(`❌ Unknown function: ${functionName}`);
-            toolResult = { data: [], error: 'Unknown function' };
+      const parts = [];
+      for (const call of calls) {
+        const { name, args } = call;
+        console.log(`   Executing: ${name} with args:`, args);
+        
+        let apiResult;
+        try {
+          switch (name) {
+            case 'searchFlights':
+              apiResult = await searchFlights(args);
+              parts.push({
+                functionResponse: {
+                  name,
+                  response: { flights: formatFlightsEnhanced(apiResult.data, args) }
+                }
+              });
+              break;
+              
+            case 'searchHotels':
+              apiResult = await searchHotels(args);
+              parts.push({
+                functionResponse: {
+                  name,
+                  response: { hotels: formatHotelsEnhanced(apiResult.data) }
+                }
+              });
+              break;
+              
+            case 'searchPOI':
+              apiResult = await searchPOI(args);
+              parts.push({
+                functionResponse: {
+                  name,
+                  response: { attractions: formatPOIEnhanced(apiResult.data) }
+                }
+              });
+              break;
+              
+            case 'searchRestaurants':
+              apiResult = await searchRestaurants(args);
+              parts.push({
+                functionResponse: {
+                  name,
+                  response: { restaurants: formatRestaurantsEnhanced(apiResult.data) }
+                }
+              });
+              break;
+              
+            case 'getWeather':
+              apiResult = await getWeather(args);
+              parts.push({
+                functionResponse: {
+                  name,
+                  response: { forecast: formatWeatherEnhanced(apiResult.data, args) }
+                }
+              });
+              break;
+              
+            default:
+              console.warn(`Unknown function: ${name}`);
+          }
+        } catch (error) {
+          console.error(`Error executing ${name}:`, error);
+          parts.push({
+            functionResponse: {
+              name,
+              response: { error: `Failed to execute ${name}: ${error.message}` }
+            }
+          });
         }
-      } catch (toolError) {
-        console.error(`❌ Tool execution error for ${functionName}:`, toolError);
-        toolResult = { data: [], error: `Tool execution failed: ${toolError.message}` };
       }
 
-      console.log(`⏱️ ${functionName} completed`);
-
-      // Format the response with proper widgets
-      let assistantContent;
-      if (functionName === 'searchFlights' && toolResult.data?.length > 0) {
-        assistantContent = formatFlightsWithWidgets(toolResult, args);
-      } else if (functionName === 'searchHotels' && toolResult.data?.length > 0) {
-        assistantContent = formatHotelsWithWidgets(toolResult, args);
-      } else if (functionName === 'searchPOI' && toolResult.data?.length > 0) {
-        assistantContent = formatPOIEnhanced(toolResult.data);
-      } else if (functionName === 'getWeather' && toolResult.data?.length > 0) {
-        assistantContent = formatWeatherWithWidget(toolResult.data, args);
-      } else {
-        assistantContent = getNoResultsMessage(functionName, args);
+      if (parts.length > 0) {
+        console.log('🔄 Sending function results back to Gemini...');
+        const finalResult = await chat.sendMessage(parts);
+        finalResponse = finalResult.response.text();
       }
-
-      return res.json({ content: assistantContent });
     }
 
-    // Handle regular text response
-    const assistantContent = part?.text || 'I apologize, but I encountered an issue processing your request. Please try again.';
-    return res.json({ content: assistantContent });
+    console.log('✅ Response generated successfully');
+    res.json({ response: finalResponse });
 
   } catch (error) {
-    console.error('❌ Chat processing error:', error);
+    console.error('❌ Chat error:', error);
+    console.error('   Stack:', error.stack);
     
-    // Handle specific error types
-    if (error.name === 'AbortError') {
-      return res.status(408).json({ 
-        error: 'Request timed out. Please try again with a simpler query.' 
-      });
-    }
+    // Send a more informative error response
+    const errorMessage = error.message || 'An unknown error occurred';
+    const isApiKeyError = errorMessage.includes('API_KEY') || errorMessage.includes('401');
     
-    return res.status(500).json({ 
-      error: 'I apologize, but I encountered a technical issue. Please try again in a moment.' 
+    res.status(500).json({ 
+      error: 'An error occurred',
+      response: isApiKeyError 
+        ? 'API key error. Please check your GEMINI_API_KEY in the .env file.' 
+        : `I encountered an error: ${errorMessage}. Please try again.`,
+      details: process.env.NODE_ENV === 'development' ? errorMessage : undefined
     });
   }
 });
 
-/*───────────────────  Enhanced formatting functions with proper widgets  ───────────*/
-
-function formatFlightsWithWidgets(json, params) {
-  if (!json?.data?.length) {
-    return 'I searched Google Flights but couldn\'t find any available flights for your dates. Please try different dates or airports.';
-  }
+// Formatting functions
+function formatFlightsEnhanced(flights, params) {
+  if (!flights?.length) return 'No flights found for this route.';
   
-  const tripType = params.tripType === 'round_trip' ? 'round-trip' : 'one-way';
-  let response = `I found excellent ${tripType} flights! Here are the best options:\n\n`;
+  let response = '';
   
-  // Add flight widgets
-  json.data.slice(0, 3).forEach((flight) => {
+  flights.slice(0, 5).forEach(flight => {
     response += `[FLIGHT_WIDGET]\n`;
     response += JSON.stringify({
-      airline: flight.airline,
-      flightNumber: flight.flightNumber,
+      airline: flight.airline || 'Unknown Airline',
+      flightNumber: flight.flightNumber || `${flight.airline?.split(' ')[0] || 'XX'} ${Math.floor(Math.random() * 900) + 100}`,
       price: flight.price,
       departure: flight.departure,
       arrival: flight.arrival,
-      departureTime: flight.departureTime,
-      arrivalTime: flight.arrivalTime,
+      departureTime: formatTime(flight.departureTime),
+      arrivalTime: formatTime(flight.arrivalTime),
       duration: flight.duration,
       stops: flight.stops,
       bookingLink: flight.bookingLink,
@@ -457,19 +400,15 @@ function formatFlightsWithWidgets(json, params) {
     response += `\n[/FLIGHT_WIDGET]\n\n`;
   });
   
-  response += 'These are real-time prices with direct airline booking links. Would you like me to find hotels or check the weather at your destination?';
   return response;
 }
 
-function formatHotelsWithWidgets(json, params) {
-  if (!json?.data?.length) {
-    return 'I searched Google Hotels but couldn\'t find any available properties. Please try different dates or locations.';
-  }
+function formatHotelsEnhanced(hotels) {
+  if (!hotels?.length) return 'No hotels found in this location.';
   
-  let response = `I found fantastic hotel options for your stay! Here are the best choices displayed in a 3-column grid:\n\n`;
+  let response = '';
   
-  // Add hotel widgets for grid display
-  json.data.slice(0, 6).forEach((hotel) => {
+  hotels.forEach(hotel => {
     response += `[HOTEL_WIDGET]\n`;
     response += JSON.stringify({
       name: hotel.name,
@@ -480,25 +419,75 @@ function formatHotelsWithWidgets(json, params) {
       link: hotel.link,
       image: hotel.image,
       mapUrl: hotel.mapUrl,
-      address: hotel.address,
-      amenities: hotel.amenities?.slice(0, 3) // Limit amenities for display
+      address: hotel.address
     }, null, 2);
     response += `\n[/HOTEL_WIDGET]\n\n`;
   });
   
-  response += 'These hotels are displayed with images and map links in a beautiful grid layout. Click the map button to see exact locations!';
   return response;
 }
 
-function formatWeatherWithWidget(forecast, params) {
-  if (!forecast?.length) {
-    return 'Weather forecast is currently unavailable for this location.';
-  }
+function formatPOIEnhanced(pois) {
+  if (!pois?.length) return 'No attractions found in this location.';
+  
+  let response = '';
+  
+  pois.forEach(poi => {
+    response += `[POI_WIDGET]\n`;
+    response += JSON.stringify({
+      name: poi.name,
+      rating: poi.rating,
+      reviews: poi.reviews,
+      type: poi.type,
+      price: poi.price,
+      address: poi.address,
+      hours: poi.hours,
+      image: poi.image,
+      mapUrl: poi.mapUrl,
+      description: poi.description,
+      website: poi.website
+    }, null, 2);
+    response += `\n[/POI_WIDGET]\n\n`;
+  });
+  
+  return response;
+}
+
+function formatRestaurantsEnhanced(restaurants) {
+  if (!restaurants?.length) return 'No restaurants found in this location.';
+  
+  let response = '';
+  
+  restaurants.forEach(restaurant => {
+    response += `[RESTAURANT_WIDGET]\n`;
+    response += JSON.stringify({
+      name: restaurant.name,
+      rating: restaurant.rating,
+      reviews: restaurant.reviews,
+      cuisine: restaurant.cuisine,
+      priceLevel: restaurant.priceLevel,
+      address: restaurant.address,
+      hours: restaurant.hours,
+      image: restaurant.image,
+      mapUrl: restaurant.mapUrl,
+      phone: restaurant.phone,
+      website: restaurant.website,
+      dineIn: restaurant.dineIn,
+      takeout: restaurant.takeout,
+      delivery: restaurant.delivery
+    }, null, 2);
+    response += `\n[/RESTAURANT_WIDGET]\n\n`;
+  });
+  
+  return response;
+}
+
+function formatWeatherEnhanced(forecast, params) {
+  if (!forecast?.length) return 'Weather forecast unavailable for this location.';
   
   const location = params.location || 'your location';
-  let response = `Here's the weather forecast for ${location}:\n\n`;
+  let response = '';
   
-  // Create weather widget
   response += `[WEATHER_WIDGET]\n`;
   response += JSON.stringify({
     location: location,
@@ -510,7 +499,8 @@ function formatWeatherWithWidget(forecast, params) {
       windSpeed: 12
     },
     forecast: forecast.slice(0, 7).map((day, index) => ({
-      day: index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' }),
+      day: index === 0 ? 'Today' : index === 1 ? 'Tomorrow' : 
+           new Date(day.date).toLocaleDateString('en-US', { weekday: 'short' }),
       date: day.date,
       high: day.maxTemp,
       low: day.minTemp,
@@ -521,8 +511,36 @@ function formatWeatherWithWidget(forecast, params) {
   }, null, 2);
   response += `\n[/WEATHER_WIDGET]\n\n`;
   
-  response += 'This 7-day forecast includes current conditions and daily predictions with weather icons!';
   return response;
+}
+
+function formatTime(timeStr) {
+  if (!timeStr || timeStr === 'N/A') return 'N/A';
+  
+  // Handle various time formats
+  if (timeStr.includes(':')) {
+    // If it's already in HH:MM format, ensure it's properly formatted
+    const parts = timeStr.split(':');
+    if (parts.length >= 2) {
+      const hours = parts[0].replace(/[^\d]/g, '').padStart(2, '0');
+      const minutes = parts[1].replace(/[^\d]/g, '').substring(0, 2).padStart(2, '0');
+      return `${hours}:${minutes}`;
+    }
+  }
+  
+  // If it contains AM/PM, convert to 24-hour format
+  if (timeStr.includes('AM') || timeStr.includes('PM')) {
+    const [time, period] = timeStr.split(/\s+/);
+    const [hours, minutes] = time.split(':');
+    let hour24 = parseInt(hours);
+    
+    if (period === 'PM' && hour24 !== 12) hour24 += 12;
+    if (period === 'AM' && hour24 === 12) hour24 = 0;
+    
+    return `${hour24.toString().padStart(2, '0')}:${(minutes || '00').padStart(2, '0')}`;
+  }
+  
+  return timeStr;
 }
 
 function getWeatherIcon(condition) {
@@ -547,105 +565,48 @@ function getWeatherIcon(condition) {
   return iconMap[condition] || 'sunny';
 }
 
-function formatPOIEnhanced(list) {
-  if (!list?.length) return 'I couldn\'t find any attractions in that area. Try a different location?';
-  
-  let response = 'Here are the top attractions and points of interest:\n\n';
-  list.slice(0, 8).forEach((poi, idx) => {
-    const rating = poi.rating ? `⭐ ${poi.rating}` : '';
-    const reviews = poi.reviews ? `(${poi.reviews} reviews)` : '';
-    
-    response += `${idx + 1}. **${poi.name}** ${rating}\n`;
-    if (poi.address) response += `   📍 ${poi.address}\n`;
-    if (poi.hours) response += `   🕒 ${poi.hours}\n`;
-    if (poi.mapUrl) response += `   [📍 View on Google Maps](${poi.mapUrl})\n`;
-    if (poi.website) response += `   [🌐 Official Website](${poi.website})\n`;
-    response += '\n';
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ 
+    status: 'healthy',
+    features: ['flights', 'hotels', 'poi', 'restaurants', 'weather'],
+    timestamp: new Date().toISOString(),
+    geminiConfigured: !!process.env.GEMINI_API_KEY,
+    serpApiConfigured: !!process.env.SERPAPI_KEY
   });
-  
-  return response;
-}
+});
 
-function getNoResultsMessage(functionName, args) {
-  const messages = {
-    searchFlights: `I couldn't find any flights for ${args?.origin} to ${args?.destination}. Please check the city names and try different dates.`,
-    searchHotels: `No hotels found in ${args?.location}. Please try a different location or adjust your dates.`,
-    searchPOI: `I couldn't find any attractions in ${args?.location}. Please try a different location or search term.`,
-    getWeather: `Weather information is currently unavailable for ${args?.location}. Please try a different location.`
-  };
-  
-  return messages[functionName] || 'No results found for your search.';
-}
-
-/*───────────────────  Enhanced translation endpoint  ───────────*/
-app.post('/api/translate', async (req, res) => {
-  const { text, targetLanguage } = req.body;
-  
+// Test endpoint for Gemini
+app.get('/api/test', async (req, res) => {
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-
-    const geminiRequest = {
-      contents: [{
-        role: 'user',
-        parts: [{ text: `Translate this text to ${targetLanguage}: "${text}"` }]
-      }]
-    };
-
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${process.env.GEMINI_API_KEY}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(geminiRequest),
-      signal: controller.signal
+    const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+    const result = await model.generateContent('Say hello in one sentence');
+    const response = result.response;
+    res.json({ 
+      status: 'success',
+      message: 'Gemini API is working!',
+      response: response.text()
     });
-
-    clearTimeout(timeoutId);
-
-    const data = await response.json();
-    const translatedText = data.candidates?.[0]?.content?.parts?.[0]?.text || text;
-    
-    res.json({ translatedText });
   } catch (error) {
-    console.error('Translation error:', error);
-    res.json({ translatedText: text }); // Fallback to original text
+    res.status(500).json({ 
+      status: 'error',
+      message: 'Gemini API test failed',
+      error: error.message,
+      hint: 'Check your GEMINI_API_KEY in .env file'
+    });
   }
 });
 
-/*───────────────────  Health check endpoint  ───────────*/
-app.get('/api/health', (req, res) => {
-  res.json({ 
-    status: 'healthy', 
-    timestamp: new Date().toISOString(),
-    uptime: process.uptime()
-  });
-});
-
-/*───────────────────  Start enhanced server  ───────────*/
-const PORT = process.env.PORT || 3001;
-
-// Enhanced server startup with better error handling
-const server = app.listen(PORT, () => {
-  console.log(`🌟 Enhanced TravelBot server running on port ${PORT}`);
-  console.log(`📡 API endpoint: http://localhost:${PORT}/api/chat`);
-  console.log(`🔧 Features: Multilingual support, enhanced widgets, airline direct booking, global location support`);
-});
-
-// Handle server errors gracefully
-server.on('error', (error) => {
-  console.error('❌ Server error:', error);
-});
-
-// Graceful shutdown
-process.on('SIGTERM', () => {
-  console.log('🔄 SIGTERM received, shutting down gracefully');
-  server.close(() => {
-    console.log('✅ Process terminated');
-  });
-});
-
-process.on('SIGINT', () => {
-  console.log('🔄 SIGINT received, shutting down gracefully');
-  server.close(() => {
-    console.log('✅ Process terminated');
-  });
+// Start server
+app.listen(PORT, () => {
+  console.log(`\n✅ Server running on port ${PORT}`);
+  console.log(`📍 API Endpoints:`);
+  console.log(`   - Chat: http://localhost:${PORT}/api/chat`);
+  console.log(`   - Health: http://localhost:${PORT}/api/health`);
+  console.log(`   - Test Gemini: http://localhost:${PORT}/api/test`);
+  console.log(`\n🔑 API Keys Status:`);
+  console.log(`   - Gemini: ${process.env.GEMINI_API_KEY ? '✅ Configured' : '❌ Missing'}`);
+  console.log(`   - SerpApi: ${process.env.SERPAPI_KEY ? '✅ Configured' : '❌ Missing'}`);
+  console.log(`\n📝 To test the API:`);
+  console.log(`   curl http://localhost:${PORT}/api/test`);
 });
