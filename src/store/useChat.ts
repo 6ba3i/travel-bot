@@ -1,4 +1,4 @@
-// src/store/chatStore.ts
+// src/store/useChat.ts
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
@@ -32,8 +32,7 @@ interface ChatStore {
   updateConversationTitle: (id: string, title: string) => void;
 }
 
-// Use window.location for development or production URL
-const API_URL = 'http://localhost:3001';
+const API_URL = ''; // Empty string means use relative URLs
 
 export const useChatStore = create<ChatStore>()(
   persist(
@@ -78,7 +77,7 @@ export const useChatStore = create<ChatStore>()(
         }));
 
         try {
-          const apiEndpoint = `${API_URL}/api/chat`;
+          const apiEndpoint = '/api/chat';
           console.log('🌐 Calling API:', apiEndpoint);
           
           const requestBody = {
@@ -99,7 +98,6 @@ export const useChatStore = create<ChatStore>()(
           });
 
           console.log('📥 Response status:', response.status);
-          console.log('📥 Response headers:', response.headers);
 
           if (!response.ok) {
             const errorText = await response.text();
