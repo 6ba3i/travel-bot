@@ -15,6 +15,17 @@ export const TRANSLATIONS = {
     deleteChat: 'Delete',
     noConversations: 'No conversations yet',
     noResults: 'No results found',
+    myTravels: 'My Travels',
+    
+    // Account menu
+    account: 'Account',
+    quickTools: 'Quick Tools',
+    paymentMethods: 'Payment Methods',
+    notifications: 'Notifications',
+    privacySettings: 'Privacy Settings',
+    manageAccount: 'Manage Account',
+    helpSupport: 'Help & Support',
+    signOut: 'Sign Out',
     
     // Sample prompts
     flightSearchPrompt: 'Find flights from New York to Paris next month',
@@ -54,6 +65,17 @@ export const TRANSLATIONS = {
     deleteChat: 'Supprimer',
     noConversations: 'Pas encore de conversations',
     noResults: 'Aucun résultat trouvé',
+    myTravels: 'Mes Voyages',
+    
+    // Account menu
+    account: 'Compte',
+    quickTools: 'Outils Rapides',
+    paymentMethods: 'Méthodes de Paiement',
+    notifications: 'Notifications',
+    privacySettings: 'Paramètres de Confidentialité',
+    manageAccount: 'Gérer le Compte',
+    helpSupport: 'Aide et Support',
+    signOut: 'Déconnexion',
     
     // Sample prompts
     flightSearchPrompt: 'Trouver des vols de Paris à New York le mois prochain',
@@ -93,6 +115,17 @@ export const TRANSLATIONS = {
     deleteChat: '删除',
     noConversations: '还没有对话',
     noResults: '未找到结果',
+    myTravels: '我的旅行',
+    
+    // Account menu
+    account: '账户',
+    quickTools: '快速工具',
+    paymentMethods: '支付方式',
+    notifications: '通知',
+    privacySettings: '隐私设置',
+    manageAccount: '管理账户',
+    helpSupport: '帮助与支持',
+    signOut: '退出登录',
     
     // Sample prompts
     flightSearchPrompt: '查找下个月从纽约到巴黎的航班',
@@ -132,6 +165,17 @@ export const TRANSLATIONS = {
     deleteChat: 'حذف',
     noConversations: 'لا توجد محادثات بعد',
     noResults: 'لم يتم العثور على نتائج',
+    myTravels: 'رحلاتي',
+    
+    // Account menu
+    account: 'الحساب',
+    quickTools: 'أدوات سريعة',
+    paymentMethods: 'طرق الدفع',
+    notifications: 'الإشعارات',
+    privacySettings: 'إعدادات الخصوصية',
+    manageAccount: 'إدارة الحساب',
+    helpSupport: 'المساعدة والدعم',
+    signOut: 'تسجيل الخروج',
     
     // Sample prompts
     flightSearchPrompt: 'البحث عن رحلات من نيويورك إلى باريس الشهر المقبل',
@@ -171,6 +215,17 @@ export const TRANSLATIONS = {
     deleteChat: 'Eliminar',
     noConversations: 'No hay conversaciones aún',
     noResults: 'No se encontraron resultados',
+    myTravels: 'Mis Viajes',
+    
+    // Account menu
+    account: 'Cuenta',
+    quickTools: 'Herramientas Rápidas',
+    paymentMethods: 'Métodos de Pago',
+    notifications: 'Notificaciones',
+    privacySettings: 'Configuración de Privacidad',
+    manageAccount: 'Administrar Cuenta',
+    helpSupport: 'Ayuda y Soporte',
+    signOut: 'Cerrar Sesión',
     
     // Sample prompts
     flightSearchPrompt: 'Buscar vuelos de Nueva York a París el próximo mes',
@@ -195,3 +250,5 @@ export const TRANSLATIONS = {
     tomorrow: 'Mañana'
   }
 } as const;
+
+export type LanguageCode = keyof typeof TRANSLATIONS;

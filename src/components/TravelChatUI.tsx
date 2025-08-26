@@ -1,39 +1,16 @@
-// src/components/TravelChatUI.tsx - Enhanced with POI and Restaurant support
-import { useState, useEffect, useRef, useCallback } from 'react';
+// src/components/TravelChatUI.tsx
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { 
-  Send, 
-  Plane, 
-  Hotel, 
-  MapPin, 
-  Camera,  // Added Camera import
-  CloudSun,
-  Sparkles,
-  MessageSquare,
-  ChevronDown,
-  Globe,
-  Search,
-  Trash2,
-  Plus,
-  X,
-  Sun,
-  Cloud,
-  CloudRain,
-  CloudSnow,
-  Wind,
-  Star,
-  Users,
-  Clock,
-  Building,
-  TreePine,
-  Utensils,
-  Phone
+  Send, Plane, Hotel, MapPin, CloudSun, Camera, Star, Clock, Users, 
+  ChevronDown, Globe, MessageSquare, Plus, Search, Trash2, X, Sparkles,
+  TreePine, Utensils, Building, Wind, Sun, Cloud, CloudRain, CloudSnow,
+  User, Settings, LogOut, CreditCard, HelpCircle, Bell, Shield, Map
 } from 'lucide-react';
 import { useChatStore } from '../store/useChat';
-import { TRANSLATIONS } from '../lib/translations';
+import { TRANSLATIONS, LanguageCode } from '../lib/translations';
 import './TravelChatUI.css';
 
-type LanguageCode = keyof typeof TRANSLATIONS;
-
+// Type definitions
 interface FlightData {
   airline: string;
   flightNumber?: string;
@@ -50,8 +27,8 @@ interface FlightData {
 
 interface HotelData {
   name: string;
-  rating: number;
-  reviews: number | string;
+  rating?: number;
+  reviews?: number;
   price: string;
   location: string;
   link?: string;
@@ -115,7 +92,6 @@ interface Widget {
   type: string;
   data: FlightData | HotelData | POIData | RestaurantData | WeatherData;
 }
-
 
 // Airline websites mapping
 const AIRLINE_WEBSITES: Record<string, string> = {
@@ -263,90 +239,111 @@ const FlightWidget: React.FC<{ flight: FlightData; index: number; language: Lang
   );
 };
 
+// Hotel Widget Component with purple hover effect
 const HotelWidget: React.FC<{ hotel: HotelData; index: number; language: LanguageCode }> = ({ hotel, index, language }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const t = TRANSLATIONS[language];
   
+  const getGoogleMapsUrl = () => {
+    const searchQuery = `${hotel.name} ${hotel.address || hotel.location}`;
+    return `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`;
+  };
+  
   return (
-    <div 
-      className="travel-card group relative overflow-hidden rounded-xl bg-gray-800/50 backdrop-blur-lg border border-gray-700/50 hover:border-indigo-500/50 transition-all duration-300"
+    <div
+      className={`relative group transition-all duration-500 transform
+        ${isHovered ? 'scale-[1.02] -translate-y-1' : 'scale-100 translate-y-0'}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{ animationDelay: `${index * 100}ms` }}
     >
-      {/* Image with fixed height */}
-      <div className="relative h-48 w-full overflow-hidden">
-        {hotel.image ? (
-          <img 
-            src={hotel.image} 
-            alt={hotel.name}
-            className="travel-card-image w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Hotel';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center">
-            <Building className="w-12 h-12 text-gray-600" />
-          </div>
-        )}
-        
-        {/* Rating Badge */}
-        <div className="card-badge">
-          <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-          <span className="text-white">{hotel.rating}</span>
-        </div>
-      </div>
+      {/* Purple glow on hover - external effect */}
+      <div className={`absolute inset-0 bg-gradient-to-r from-purple-500 to-purple-600 rounded-xl blur-xl 
+        ${isHovered ? 'opacity-30' : 'opacity-0'} transition-opacity duration-500`} />
       
-      {/* Content with flex growth */}
-      <div className="travel-card-body p-4 flex flex-col h-full">
-        <h3 className="travel-card-title text-white font-semibold text-lg mb-2 line-clamp-2">
-          {hotel.name}
-        </h3>
+      <div className={`travel-card relative overflow-hidden rounded-xl bg-gray-800/50 backdrop-blur-lg 
+        border ${isHovered ? 'border-purple-500/50' : 'border-gray-700/50'} 
+        transition-all duration-300`}>
         
-        <div className="flex items-center gap-2 mb-3 text-gray-400 text-sm">
-          <MapPin className="w-3 h-3" />
-          <span className="line-clamp-1">{hotel.address || hotel.location}</span>
-        </div>
-        
-        <div className="flex items-center gap-2 mb-3 text-gray-400 text-sm">
-          <Users className="w-3 h-3" />
-          <span>{hotel.reviews} {t.reviews}</span>
-        </div>
-        
-        {/* Spacer to push footer to bottom */}
-        <div className="flex-grow"></div>
-        
-        {/* Footer - always at bottom */}
-        <div className="travel-card-footer pt-3 mt-auto border-t border-gray-700/50">
-          <div className="flex items-center justify-between mb-3">
-            <div className="text-2xl font-bold text-white">
-              {hotel.price}
-              <span className="text-sm font-normal text-gray-400 ml-1">{t.perNight}</span>
+        {/* Image with fixed height */}
+        <div className="relative h-48 w-full overflow-hidden">
+          {hotel.image ? (
+            <img 
+              src={hotel.image} 
+              alt={hotel.name}
+              className="travel-card-image w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Hotel';
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-purple-700 to-purple-800 flex items-center justify-center">
+              <Hotel className="w-12 h-12 text-purple-600" />
             </div>
+          )}
+          
+          {/* Price Badge at top */}
+          <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1 rounded-full">
+            <span className="text-white font-bold">{hotel.price}</span>
           </div>
           
-          <div className="flex gap-2">
-            <a
-              href={hotel.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex-1 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium text-sm text-center transition-colors"
-            >
-              {t.viewDetails}
-            </a>
-            <a
-              href={hotel.mapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-            >
-              <MapPin className="w-4 h-4" />
-            </a>
+          {/* Rating Badge */}
+          {hotel.rating && (
+            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
+              <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+              <span className="text-white text-sm">{hotel.rating}</span>
+            </div>
+          )}
+        </div>
+        
+        {/* Content */}
+        <div className="travel-card-body p-4 flex flex-col h-full">
+          <h3 className="travel-card-title text-white font-semibold text-lg mb-2 line-clamp-2">
+            {hotel.name}
+          </h3>
+          
+          <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
+            <MapPin className="w-3 h-3" />
+            <span className="line-clamp-1">{hotel.address || hotel.location}</span>
+          </div>
+          
+          {hotel.reviews && (
+            <div className="text-sm text-gray-400 mb-3">
+              {hotel.reviews} {t.reviews}
+            </div>
+          )}
+          
+          <div className="flex-grow"></div>
+          
+          <div className="travel-card-footer pt-3 mt-auto border-t border-gray-700/50">
+            <div className="flex gap-2">
+              <a
+                href={getGoogleMapsUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium text-sm text-center transition-colors"
+              >
+                {t.viewDetails}
+              </a>
+              <a
+                href={hotel.mapUrl || getGoogleMapsUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                <MapPin className="w-4 h-4" />
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
+
+// POI Widget Component with green hover effect
 const POIWidget: React.FC<{ poi: POIData; index: number; language: LanguageCode }> = ({ poi, index, language }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const t = TRANSLATIONS[language];
   
   const getTypeIcon = (type: string) => {
@@ -358,101 +355,114 @@ const POIWidget: React.FC<{ poi: POIData; index: number; language: LanguageCode 
   
   const TypeIcon = getTypeIcon(poi.type || '');
   
+  const getGoogleMapsUrl = () => {
+    const searchQuery = `${poi.name} ${poi.address || ''}`;
+    return `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`;
+  };
+  
   return (
-    <div 
-      className="poi-card group relative overflow-hidden rounded-xl bg-gray-800/50 backdrop-blur-lg border border-gray-700/50 hover:border-green-500/50 transition-all duration-300"
+    <div
+      className={`relative group transition-all duration-500 transform
+        ${isHovered ? 'scale-[1.02] -translate-y-1' : 'scale-100 translate-y-0'}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{ animationDelay: `${index * 100}ms` }}
     >
-      {/* Image with fixed height */}
-      <div className="relative h-48 w-full overflow-hidden">
-        {poi.image ? (
-          <img 
-            src={poi.image} 
-            alt={poi.name}
-            className="travel-card-image w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Attraction';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-green-700 to-green-800 flex items-center justify-center">
-            <TypeIcon className="w-12 h-12 text-green-600" />
-          </div>
-        )}
-        
-        {/* Rating Badge */}
-        {poi.rating && (
-          <div className="card-badge">
-            <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-            <span className="text-white">{poi.rating}</span>
-          </div>
-        )}
-      </div>
+      {/* Green glow on hover - external effect */}
+      <div className={`absolute inset-0 bg-gradient-to-r from-green-500 to-green-600 rounded-xl blur-xl 
+        ${isHovered ? 'opacity-30' : 'opacity-0'} transition-opacity duration-500`} />
       
-      {/* Content with flex growth */}
-      <div className="travel-card-body p-4 flex flex-col h-full">
-        <div className="flex items-center gap-2 mb-2">
-          <TypeIcon className="w-4 h-4 text-green-400" />
-          <span className="text-green-400 text-xs font-medium uppercase tracking-wider">
-            {poi.type}
-          </span>
-        </div>
+      <div className={`poi-card relative overflow-hidden rounded-xl bg-gray-800/50 backdrop-blur-lg 
+        border ${isHovered ? 'border-green-500/50' : 'border-gray-700/50'} 
+        transition-all duration-300`}>
         
-        <h3 className="travel-card-title text-white font-semibold text-lg mb-2 line-clamp-2">
-          {poi.name}
-        </h3>
-        
-        <p className="travel-card-description text-gray-400 text-sm mb-3 line-clamp-3">
-          {poi.description}
-        </p>
-        
-        <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
-          <MapPin className="w-3 h-3" />
-          <span className="line-clamp-1">{poi.address}</span>
-        </div>
-        
-        {poi.hours && (
-          <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
-            <Clock className="w-3 h-3" />
-            <span className="line-clamp-1">{poi.hours}</span>
-          </div>
-        )}
-        
-        {/* Spacer to push footer to bottom */}
-        <div className="flex-grow"></div>
-        
-        {/* Footer - always at bottom */}
-        <div className="travel-card-footer pt-3 mt-auto border-t border-gray-700/50">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-lg font-semibold text-white">
-              {poi.price || 'Free'}
-            </span>
-            {poi.reviews && (
-              <span className="text-sm text-gray-400">
-                {poi.reviews} {t.reviews}
-              </span>
-            )}
+        {/* Image with fixed height */}
+        <div className="relative h-48 w-full overflow-hidden">
+          {poi.image ? (
+            <img 
+              src={poi.image} 
+              alt={poi.name}
+              className="travel-card-image w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Attraction';
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-green-700 to-green-800 flex items-center justify-center">
+              <TypeIcon className="w-12 h-12 text-green-600" />
+            </div>
+          )}
+          
+          {/* Price Badge at top */}
+          <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1 rounded-full">
+            <span className="text-white font-bold">{poi.price || 'Free'}</span>
           </div>
           
-          <div className="flex gap-2">
-            {poi.website && (
+          {/* Rating Badge */}
+          {poi.rating && (
+            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
+              <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+              <span className="text-white text-sm">{poi.rating}</span>
+            </div>
+          )}
+        </div>
+        
+        {/* Content */}
+        <div className="travel-card-body p-4 flex flex-col h-full">
+          <div className="flex items-center gap-2 mb-2">
+            <TypeIcon className="w-4 h-4 text-green-400" />
+            <span className="text-green-400 text-xs font-medium uppercase tracking-wider">
+              {poi.type}
+            </span>
+          </div>
+          
+          <h3 className="travel-card-title text-white font-semibold text-lg mb-2 line-clamp-2">
+            {poi.name}
+          </h3>
+          
+          <p className="travel-card-description text-gray-400 text-sm mb-3 line-clamp-3">
+            {poi.description}
+          </p>
+          
+          <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
+            <MapPin className="w-3 h-3" />
+            <span className="line-clamp-1">{poi.address}</span>
+          </div>
+          
+          {poi.hours && (
+            <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
+              <Clock className="w-3 h-3" />
+              <span className="line-clamp-1">{poi.hours}</span>
+            </div>
+          )}
+          
+          <div className="flex-grow"></div>
+          
+          <div className="travel-card-footer pt-3 mt-auto border-t border-gray-700/50">
+            {poi.reviews && (
+              <div className="text-sm text-gray-400 mb-3">
+                {poi.reviews} {t.reviews}
+              </div>
+            )}
+            
+            <div className="flex gap-2">
               <a
-                href={poi.website}
+                href={getGoogleMapsUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg font-medium text-sm text-center transition-colors"
               >
                 {t.viewDetails}
               </a>
-            )}
-            <a
-              href={poi.mapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-            >
-              <MapPin className="w-4 h-4" />
-            </a>
+              <a
+                href={poi.mapUrl || getGoogleMapsUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                <MapPin className="w-4 h-4" />
+              </a>
+            </div>
           </div>
         </div>
       </div>
@@ -460,138 +470,128 @@ const POIWidget: React.FC<{ poi: POIData; index: number; language: LanguageCode 
   );
 };
 
+// Restaurant Widget Component with orange hover effect
 const RestaurantWidget: React.FC<{ restaurant: RestaurantData; index: number; language: LanguageCode }> = ({ restaurant, index, language }) => {
+  const [isHovered, setIsHovered] = useState(false);
   const t = TRANSLATIONS[language];
   
   const getPriceLevelDisplay = (level: string) => {
     const count = level?.length || 2;
-    return '💲'.repeat(Math.min(count, 4));
+    return level || '$';
+  };
+  
+  const getGoogleMapsUrl = () => {
+    const searchQuery = `${restaurant.name} restaurant ${restaurant.address || restaurant.cuisine || ''}`;
+    return `https://www.google.com/maps/search/${encodeURIComponent(searchQuery)}`;
   };
   
   return (
-    <div 
-      className="restaurant-card group relative overflow-hidden rounded-xl bg-gray-800/50 backdrop-blur-lg border border-gray-700/50 hover:border-orange-500/50 transition-all duration-300"
+    <div
+      className={`relative group transition-all duration-500 transform
+        ${isHovered ? 'scale-[1.02] -translate-y-1' : 'scale-100 translate-y-0'}`}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       style={{ animationDelay: `${index * 100}ms` }}
     >
-      {/* Image with fixed height */}
-      <div className="relative h-48 w-full overflow-hidden">
-        {restaurant.image ? (
-          <img 
-            src={restaurant.image} 
-            alt={restaurant.name}
-            className="travel-card-image w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-            onError={(e) => {
-              (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Restaurant';
-            }}
-          />
-        ) : (
-          <div className="w-full h-full bg-gradient-to-br from-orange-700 to-orange-800 flex items-center justify-center">
-            <Utensils className="w-12 h-12 text-orange-600" />
-          </div>
-        )}
-        
-        {/* Rating Badge */}
-        {restaurant.rating && (
-          <div className="card-badge">
-            <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
-            <span className="text-white">{restaurant.rating}</span>
-          </div>
-        )}
-      </div>
+      {/* Orange glow on hover - external effect */}
+      <div className={`absolute inset-0 bg-gradient-to-r from-orange-500 to-orange-600 rounded-xl blur-xl 
+        ${isHovered ? 'opacity-30' : 'opacity-0'} transition-opacity duration-500`} />
       
-      {/* Content with flex growth */}
-      <div className="travel-card-body p-4 flex flex-col h-full">
-        <div className="flex items-center gap-2 mb-2">
-          <Utensils className="w-4 h-4 text-orange-400" />
-          <span className="text-orange-400 text-xs font-medium uppercase tracking-wider">
-            {restaurant.cuisine}
-          </span>
-        </div>
+      <div className={`restaurant-card relative overflow-hidden rounded-xl bg-gray-800/50 backdrop-blur-lg 
+        border ${isHovered ? 'border-orange-500/50' : 'border-gray-700/50'} 
+        transition-all duration-300`}>
         
-        <h3 className="travel-card-title text-white font-semibold text-lg mb-2 line-clamp-2">
-          {restaurant.name}
-        </h3>
-        
-        <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
-          <MapPin className="w-3 h-3" />
-          <span className="line-clamp-1">{restaurant.address}</span>
-        </div>
-        
-        {restaurant.hours && (
-          <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
-            <Clock className="w-3 h-3" />
-            <span className="line-clamp-1">{restaurant.hours}</span>
-          </div>
-        )}
-        
-        {restaurant.phone && (
-          <div className="flex items-center gap-2 mb-3 text-gray-400 text-sm">
-            <Phone className="w-3 h-3" />
-            <span>{restaurant.phone}</span>
-          </div>
-        )}
-        
-        {/* Service options */}
-        <div className="flex gap-2 mb-3">
-          {restaurant.dineIn && (
-            <span className="px-2 py-1 bg-gray-700/50 rounded text-xs text-gray-300">
-              Dine-in
-            </span>
+        {/* Image with fixed height */}
+        <div className="relative h-48 w-full overflow-hidden">
+          {restaurant.image ? (
+            <img 
+              src={restaurant.image} 
+              alt={restaurant.name}
+              className="travel-card-image w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'https://via.placeholder.com/400x300?text=Restaurant';
+              }}
+            />
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-orange-700 to-orange-800 flex items-center justify-center">
+              <Utensils className="w-12 h-12 text-orange-600" />
+            </div>
           )}
-          {restaurant.takeout && (
-            <span className="px-2 py-1 bg-gray-700/50 rounded text-xs text-gray-300">
-              Takeout
-            </span>
-          )}
-          {restaurant.delivery && (
-            <span className="px-2 py-1 bg-gray-700/50 rounded text-xs text-gray-300">
-              Delivery
-            </span>
-          )}
-        </div>
-        
-        {/* Spacer to push footer to bottom */}
-        <div className="flex-grow"></div>
-        
-        {/* Footer - always at bottom */}
-        <div className="travel-card-footer pt-3 mt-auto border-t border-gray-700/50">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-lg font-semibold text-white">
-              {getPriceLevelDisplay(restaurant.priceLevel || '')}
-            </span>
-            {restaurant.reviews && (
-              <span className="text-sm text-gray-400">
-                {restaurant.reviews} {t.reviews}
-              </span>
-            )}
+          
+          {/* Price Level Badge at top */}
+          <div className="absolute top-3 right-3 bg-black/80 backdrop-blur-md px-3 py-1 rounded-full">
+            <span className="text-white font-bold text-sm">{getPriceLevelDisplay(restaurant.priceLevel || '')}</span>
           </div>
           
-          <div className="flex gap-2">
-            {restaurant.website && (
+          {/* Rating Badge */}
+          {restaurant.rating && (
+            <div className="absolute top-3 left-3 bg-black/80 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1">
+              <Star className="w-3 h-3 text-yellow-400 fill-yellow-400" />
+              <span className="text-white text-sm">{restaurant.rating}</span>
+            </div>
+          )}
+        </div>
+        
+        {/* Content */}
+        <div className="travel-card-body p-4 flex flex-col h-full">
+          <div className="flex items-center gap-2 mb-2">
+            <Utensils className="w-4 h-4 text-orange-400" />
+            <span className="text-orange-400 text-xs font-medium uppercase tracking-wider">
+              {restaurant.cuisine || 'Restaurant'}
+            </span>
+          </div>
+          
+          <h3 className="travel-card-title text-white font-semibold text-lg mb-2 line-clamp-2">
+            {restaurant.name}
+          </h3>
+          
+          <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
+            <MapPin className="w-3 h-3" />
+            <span className="line-clamp-1">{restaurant.address}</span>
+          </div>
+          
+          {restaurant.hours && (
+            <div className="flex items-center gap-2 mb-2 text-gray-400 text-sm">
+              <Clock className="w-3 h-3" />
+              <span className="line-clamp-1">{restaurant.hours}</span>
+            </div>
+          )}
+          
+          <div className="flex-grow"></div>
+          
+          <div className="travel-card-footer pt-3 mt-auto border-t border-gray-700/50">
+            {restaurant.reviews && (
+              <div className="text-sm text-gray-400 mb-3">
+                {restaurant.reviews} {t.reviews}
+              </div>
+            )}
+            
+            <div className="flex gap-2">
               <a
-                href={restaurant.website}
+                href={getGoogleMapsUrl()}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex-1 px-4 py-2 bg-orange-600 hover:bg-orange-700 text-white rounded-lg font-medium text-sm text-center transition-colors"
               >
                 {t.viewDetails}
               </a>
-            )}
-            <a
-              href={restaurant.mapUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
-            >
-              <MapPin className="w-4 h-4" />
-            </a>
+              <a
+                href={restaurant.mapUrl || getGoogleMapsUrl()}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg transition-colors"
+              >
+                <MapPin className="w-4 h-4" />
+              </a>
+            </div>
           </div>
         </div>
       </div>
     </div>
   );
 };
-// Weather Widget Component (unchanged)
+
+// Weather Widget Component
 const WeatherWidget: React.FC<{ weather: WeatherData; index: number; language: LanguageCode }> = ({ weather, index, language }) => {
   const [isHovered, setIsHovered] = useState(false);
   const t = TRANSLATIONS[language];
@@ -622,7 +622,7 @@ const WeatherWidget: React.FC<{ weather: WeatherData; index: number; language: L
           </div>
         </div>
         
-        <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-7 gap-3">
+        <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-10 gap-3">
           {weather.forecast.map((day, idx) => {
             const Icon = getWeatherIcon(day.icon);
             return (
@@ -647,7 +647,7 @@ const WeatherWidget: React.FC<{ weather: WeatherData; index: number; language: L
   );
 };
 
-// Sidebar Component
+// Sidebar Component with My Travels button
 const Sidebar: React.FC<{
   language: LanguageCode;
   onClose: () => void;
@@ -744,6 +744,19 @@ const Sidebar: React.FC<{
           </div>
         )}
       </div>
+      
+      {/* My Travels Button */}
+      <div className="p-4 border-t border-gray-800/50">
+        <a
+          href="#"
+          className="w-full py-2 px-4 rounded-lg bg-gray-800/50 border border-gray-700/50
+            text-gray-300 font-medium hover:bg-gray-700/50 hover:text-white hover:border-gray-600/50
+            transition-all duration-200 flex items-center justify-center gap-2"
+        >
+          <Map className="w-4 h-4" />
+          My Travels
+        </a>
+      </div>
     </div>
   );
 };
@@ -754,6 +767,7 @@ const TravelChatUI: React.FC = () => {
   const [input, setInput] = useState('');
   const [language, setLanguage] = useState<LanguageCode>('en');
   const [showLanguageDropdown, setShowLanguageDropdown] = useState(false);
+  const [showAccountDropdown, setShowAccountDropdown] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const t = TRANSLATIONS[language];
@@ -859,35 +873,93 @@ const TravelChatUI: React.FC = () => {
               <h1 className="text-xl font-bold text-white">TravelBot</h1>
             </div>
             
-            <div className="relative">
-              <button
-                onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
-                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 
-                  text-white transition-colors"
-              >
-                <Globe className="w-4 h-4" />
-                <span>{TRANSLATIONS[language].languageName}</span>
-                <ChevronDown className={`w-4 h-4 transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`} />
-              </button>
+            <div className="flex items-center gap-3">
+              {/* Account Section with Hover Menu */}
+              <div className="relative">
+                <button
+                  onMouseEnter={() => setShowAccountDropdown(true)}
+                  onMouseLeave={() => setShowAccountDropdown(false)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 
+                    text-white transition-colors"
+                >
+                  <User className="w-4 h-4" />
+                  <span>Account</span>
+                </button>
+                
+                {showAccountDropdown && (
+                  <div 
+                    className="absolute right-0 mt-2 w-56 bg-gray-900/95 backdrop-blur-xl rounded-lg shadow-xl 
+                      border border-gray-700/50 overflow-hidden z-50"
+                    onMouseEnter={() => setShowAccountDropdown(true)}
+                    onMouseLeave={() => setShowAccountDropdown(false)}
+                  >
+                    {/* Quick Tools Section */}
+                    <div className="p-2 border-b border-gray-700/50">
+                      <div className="text-xs text-gray-500 uppercase tracking-wider px-3 py-1">Quick Tools</div>
+                      <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-800/50 text-gray-300 flex items-center gap-2">
+                        <CreditCard className="w-4 h-4" />
+                        Payment Methods
+                      </button>
+                      <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-800/50 text-gray-300 flex items-center gap-2">
+                        <Bell className="w-4 h-4" />
+                        Notifications
+                      </button>
+                      <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-800/50 text-gray-300 flex items-center gap-2">
+                        <Shield className="w-4 h-4" />
+                        Privacy Settings
+                      </button>
+                    </div>
+                    
+                    {/* Account Actions */}
+                    <div className="p-2">
+                      <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-800/50 text-gray-300 flex items-center gap-2">
+                        <Settings className="w-4 h-4" />
+                        Manage Account
+                      </button>
+                      <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-800/50 text-gray-300 flex items-center gap-2">
+                        <HelpCircle className="w-4 h-4" />
+                        Help & Support
+                      </button>
+                      <button className="w-full text-left px-3 py-2 rounded hover:bg-gray-800/50 text-red-400 flex items-center gap-2">
+                        <LogOut className="w-4 h-4" />
+                        Sign Out
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
               
-              {showLanguageDropdown && (
-                <div className="absolute right-0 mt-2 w-48 rounded-lg bg-gray-800/95 backdrop-blur-xl 
-                  border border-gray-700/50 shadow-2xl overflow-hidden z-50">
-                  {(Object.keys(TRANSLATIONS) as LanguageCode[]).map(lang => (
-                    <button
-                      key={lang}
-                      onClick={() => {
-                        setLanguage(lang);
-                        setShowLanguageDropdown(false);
-                      }}
-                      className={`w-full px-4 py-2 text-left hover:bg-gray-700/50 transition-colors
-                        ${language === lang ? 'bg-indigo-600/20 text-indigo-400' : 'text-white'}`}
-                    >
-                      {TRANSLATIONS[lang].languageName}
-                    </button>
-                  ))}
-                </div>
-              )}
+              {/* Language Selector */}
+              <div className="relative">
+                <button
+                  onClick={() => setShowLanguageDropdown(!showLanguageDropdown)}
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 
+                    text-white transition-colors"
+                >
+                  <Globe className="w-4 h-4" />
+                  <span>{TRANSLATIONS[language].languageName}</span>
+                  <ChevronDown className={`w-4 h-4 transition-transform ${showLanguageDropdown ? 'rotate-180' : ''}`} />
+                </button>
+                
+                {showLanguageDropdown && (
+                  <div className="absolute right-0 mt-2 w-48 bg-gray-900/95 backdrop-blur-xl rounded-lg shadow-xl 
+                    border border-gray-700/50 overflow-hidden z-50">
+                    {Object.keys(TRANSLATIONS).map((lang) => (
+                      <button
+                        key={lang}
+                        onClick={() => {
+                          setLanguage(lang as LanguageCode);
+                          setShowLanguageDropdown(false);
+                        }}
+                        className={`w-full text-left px-4 py-2 hover:bg-gray-800/50 transition-colors
+                          ${language === lang ? 'bg-indigo-600/20 text-indigo-400' : 'text-white'}`}
+                      >
+                        {TRANSLATIONS[lang as LanguageCode].languageName}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </header>
@@ -935,18 +1007,14 @@ const TravelChatUI: React.FC = () => {
                         <div className={`inline-block p-4 rounded-2xl ${
                           message.role === 'user'
                             ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white'
-                            : 'bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 text-white'
+                            : 'bg-gray-800/50 backdrop-blur-xl border border-gray-700/50 text-gray-200'
                         }`}>
-                          <div className="prose prose-invert max-w-none">
-                            {textContent.split('\n').map((line, i) => (
-                              <p key={i} className="mb-2 last:mb-0">{line}</p>
-                            ))}
-                          </div>
+                          <div className="whitespace-pre-wrap">{textContent}</div>
                         </div>
                       )}
                       
                       {widgets.length > 0 && (
-                        <div className="mt-4 space-y-4">
+                        <div className="mt-4">
                           {/* Hotels in 3-column grid */}
                           {(widgets.filter(w => w.type === 'hotel').length > 0) && (
                             <div className="hotel-grid">
@@ -1020,11 +1088,11 @@ const TravelChatUI: React.FC = () => {
                   <div className="flex items-center gap-3 p-4 rounded-2xl bg-gray-800/50 backdrop-blur-xl 
                     border border-gray-700/50">
                     <div className="flex gap-1">
-                      <div className="w-2 h-2 bg-indigo-500 rounded-full bounce-subtle" 
+                      <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" 
                         style={{ animationDelay: '0ms' }}></div>
-                      <div className="w-2 h-2 bg-indigo-500 rounded-full bounce-subtle" 
+                      <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" 
                         style={{ animationDelay: '150ms' }}></div>
-                      <div className="w-2 h-2 bg-indigo-500 rounded-full bounce-subtle" 
+                      <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce" 
                         style={{ animationDelay: '300ms' }}></div>
                     </div>
                     <span className="text-gray-400">{t.typingIndicator}</span>
