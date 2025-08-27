@@ -1,15 +1,33 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import { searchFlights, searchHotels, searchPOI, searchRestaurants, getWeather } from './src/lib/serpApi.js';
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 
-const genAI = new GoogleGenerativeAI(process.env.VITE_GEMINI_API_KEY);
+// Initialize DeepSeek client
+const deepseek = new OpenAI({
+  baseURL: 'https://api.deepseek.com',
+  apiKey: process.env.DEEPSEEK_API_KEY
+});
 
+// Session storage
+const sessions = new Map();
+
+function getSession(sessionId) {
+  if (!sessions.has(sessionId)) {
+    sessions.set(sessionId, {
+      messages: [],
+      context: {}
+    });
+  }
+  return sessions.get(sessionId);
+}
+
+// YOUR EXACT SYSTEM PROMPT - Enhanced with smart defaults
 const SYSTEM_PROMPT = `You are TravelBot, an AI travel assistant that helps users with flights, hotels, restaurants, POIs, and weather.
 
 CRITICAL RULES - NEVER VIOLATE THESE:
@@ -21,6 +39,28 @@ CRITICAL RULES - NEVER VIOLATE THESE:
 6. ALWAYS filter hotels by price when requested (e.g., "under $150" means maxPrice: 150)
 
 TODAY'S DATE: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+CURRENT DATE FOR CALCULATIONS: ${new Date().toISOString().split('T')[0]}
+
+SMART DEFAULT RULES - BE PROACTIVE:
+1. For hotels without specific dates:
+   - Use TODAY as check-in date
+   - Use TOMORROW as check-out date (1 night stay)
+   - Still search and show current prices per night
+   - Mention in response that prices are for tonight/current rates
+
+2. For flights without complete info:
+   - If only "tomorrow" mentioned, search one-way flights
+   - "next month" = first day of next month
+   - Default to 1 adult, economy class
+
+3. For restaurants/POIs:
+   - Search immediately when location is mentioned
+   - Don't ask for additional preferences unless unclear
+
+4. Date parsing:
+   - "tomorrow" = ${new Date(Date.now() + 86400000).toISOString().split('T')[0]}
+   - "today" = ${new Date().toISOString().split('T')[0]}
+   - "next month" = ${new Date(new Date().getFullYear(), new Date().getMonth() + 1, 1).toISOString().split('T')[0]}
 
 MANDATORY WIDGET FORMATS (USE EXACTLY AS SHOWN):
 
@@ -119,215 +159,303 @@ FOR WEATHER - ALWAYS format like this:
 [/WEATHER_WIDGET]
 
 RESPONSE RULES:
-1. When user asks for flights: ALWAYS call searchFlights function first, then format ALL results as FLIGHT_WIDGET
-2. When user asks for hotels: ALWAYS call searchHotels function first, then format ALL results as HOTEL_WIDGET
-3. When user asks for hotels with price constraint (e.g., "under $150"): Extract the price and pass maxPrice parameter
-4. When user asks for POIs/attractions: ALWAYS call searchPOI function first, then format ALL results as POI_WIDGET  
-5. When user asks for restaurants: ALWAYS call searchRestaurants function first, then format ALL results as RESTAURANT_WIDGET
-6. When user asks for weather: ALWAYS call getWeather function with days=10, then format as WEATHER_WIDGET
-7. NEVER mix response formats - always use the exact widget format for each type
-8. Show ALL available results from the API, not just one
-9. If a tool returns no results, explain politely and suggest alternatives
+1. When user asks for hotels without dates: Use TODAY/TOMORROW as defaults and search immediately
+2. When user asks for flights: Only ask for missing critical info (origin if not provided)
+3. Include ALL results returned by the API - display them properly formatted
+4. Remember context from previous messages in the conversation`;
 
-Remember: ALWAYS use real data from the functions, NEVER generate fake data, and ALWAYS format using the widget JSON blocks.`;
-
-// Enhanced function declarations with price filtering for hotels
-const functionDeclarations = [
+// Convert function declarations to OpenAI tools format
+const tools = [
   {
-    name: 'searchFlights',
-    description: 'Search for flights - ALWAYS use this for flight queries',
-    parameters: {
-      type: 'object',
-      properties: {
-        origin: { type: 'string', description: 'Origin city or airport code' },
-        destination: { type: 'string', description: 'Destination city or airport code' },
-        departureDate: { type: 'string', description: 'Departure date (YYYY-MM-DD)' },
-        returnDate: { type: 'string', description: 'Return date for round trips (YYYY-MM-DD)' },
-        adults: { type: 'number', description: 'Number of adult passengers' }
-      },
-      required: ['origin', 'destination', 'departureDate']
+    type: "function",
+    function: {
+      name: "searchFlights",
+      description: "Search for flights between airports",
+      parameters: {
+        type: "object",
+        properties: {
+          origin: { type: "string", description: "Origin airport code (e.g., JFK)" },
+          destination: { type: "string", description: "Destination airport code (e.g., LAX)" },
+          departureDate: { type: "string", description: "Departure date in YYYY-MM-DD format" },
+          returnDate: { type: "string", description: "Return date in YYYY-MM-DD format (optional)" },
+          adults: { type: "integer", default: 1 },
+          tripType: { type: "string", enum: ["one_way", "round_trip"], default: "one_way" }
+        },
+        required: ["origin", "destination", "departureDate"]
+      }
     }
   },
   {
-    name: 'searchHotels',
-    description: 'Search for hotels - ALWAYS use this for hotel queries. Extract price constraints from user query.',
-    parameters: {
-      type: 'object',
-      properties: {
-        location: { type: 'string', description: 'City or area to search' },
-        checkIn: { type: 'string', description: 'Check-in date (YYYY-MM-DD)' },
-        checkOut: { type: 'string', description: 'Check-out date (YYYY-MM-DD)' },
-        adults: { type: 'number', description: 'Number of adults' },
-        maxPrice: { type: 'number', description: 'Maximum price per night in USD (e.g., 150 for "under $150")' }
-      },
-      required: ['location']
+    type: "function",
+    function: {
+      name: "searchHotels",
+      description: "Search for hotels in a city",
+      parameters: {
+        type: "object",
+        properties: {
+          city: { type: "string", description: "City name" },
+          checkIn: { type: "string", description: "Check-in date in YYYY-MM-DD format" },
+          checkOut: { type: "string", description: "Check-out date in YYYY-MM-DD format" },
+          adults: { type: "integer", default: 1 },
+          maxPrice: { type: "number", description: "Maximum price per night" },
+          minPrice: { type: "number", description: "Minimum price per night" }
+        },
+        required: ["city", "checkIn", "checkOut"]
+      }
     }
   },
   {
-    name: 'searchPOI',
-    description: 'Search for tourist attractions and points of interest - ALWAYS use this for attraction queries',
-    parameters: {
-      type: 'object',
-      properties: {
-        location: { type: 'string', description: 'City or area to search' },
-        type: { type: 'string', description: 'Type of attractions to search' }
-      },
-      required: ['location']
+    type: "function",
+    function: {
+      name: "searchPOI",
+      description: "Search for points of interest and attractions",
+      parameters: {
+        type: "object",
+        properties: {
+          location: { type: "string", description: "City or location name" }
+        },
+        required: ["location"]
+      }
     }
   },
   {
-    name: 'searchRestaurants',
-    description: 'Search for restaurants - ALWAYS use this for restaurant queries',
-    parameters: {
-      type: 'object',
-      properties: {
-        location: { type: 'string', description: 'City or area to search' },
-        cuisine: { type: 'string', description: 'Type of cuisine' },
-        priceRange: { type: 'string', description: 'Price range ($, $$, $$$, $$$$)' }
-      },
-      required: ['location']
+    type: "function",
+    function: {
+      name: "searchRestaurants",
+      description: "Search for restaurants in a location",
+      parameters: {
+        type: "object",
+        properties: {
+          location: { type: "string", description: "City or area name" },
+          cuisine: { type: "string", description: "Type of cuisine (optional)" }
+        },
+        required: ["location"]
+      }
     }
   },
   {
-    name: 'getWeather',
-    description: 'Get weather forecast - ALWAYS use this for weather queries',
-    parameters: {
-      type: 'object',
-      properties: {
-        location: { type: 'string', description: 'City name' },
-        days: { type: 'number', description: 'Number of forecast days (1-10)' }
-      },
-      required: ['location']
+    type: "function",
+    function: {
+      name: "getWeather",
+      description: "Get weather forecast for a location",
+      parameters: {
+        type: "object",
+        properties: {
+          location: { type: "string", description: "City name" }
+        },
+        required: ["location"]
+      }
     }
   }
 ];
 
-// Enhanced formatting functions with price filtering
-function formatHotelsAsWidgets(hotels, maxPrice) {
-  if (!hotels?.length) {
-    return 'No hotels found in this location. Please try a different area or dates.';
+// FIXED Widget formatting functions with better data extraction
+function formatFlightsAsWidgets(flights) {
+  if (!flights || flights.length === 0) {
+    return "I couldn't find any flights for your search. Please try different dates or airports.";
   }
-  
-  // Filter by price if maxPrice is provided
-  let filteredHotels = hotels;
-  if (maxPrice) {
-    filteredHotels = hotels.filter(hotel => {
-      const price = parseFloat(hotel.price?.replace(/[$,]/g, '') || '0');
-      return price <= maxPrice;
-    });
+
+  return flights.map(flight => {
+    // Better extraction of flight times and details
+    const departureTime = flight.departure_airport?.time || 
+                         flight.flights?.[0]?.departure_airport?.time ||
+                         flight.departure_time ||
+                         "Check airline";
     
-    if (!filteredHotels.length) {
-      return `No hotels found under $${maxPrice} in this location. The available hotels start from higher prices. Would you like to see all available options?`;
-    }
-  }
-  
-  let response = '';
-  filteredHotels.slice(0, 9).forEach(hotel => {
-    response += `[HOTEL_WIDGET]\n`;
-    response += JSON.stringify({
-      name: hotel.name || 'Hotel',
-      rating: hotel.rating || 4.0,
-      reviews: hotel.reviews || 0,
-      price: hotel.price || 'Contact for price',
-      location: hotel.location || 'Location',
-      link: hotel.link || '#',
-      image: hotel.image || 'https://via.placeholder.com/400x300?text=Hotel',
-      mapUrl: hotel.mapUrl || `https://maps.google.com/maps?q=${encodeURIComponent(hotel.name)}`,
-      address: hotel.address || 'Address not available'
-    }, null, 2);
-    response += `\n[/HOTEL_WIDGET]\n\n`;
-  });
-  
-  return response;
+    const arrivalTime = flight.arrival_airport?.time || 
+                       flight.flights?.[flight.flights?.length - 1]?.arrival_airport?.time ||
+                       flight.arrival_time ||
+                       "Check airline";
+    
+    const departureAirport = flight.departure_airport?.name || 
+                            flight.flights?.[0]?.departure_airport?.name ||
+                            flight.departure ||
+                            "Departure";
+    
+    const arrivalAirport = flight.arrival_airport?.name || 
+                          flight.flights?.[flight.flights?.length - 1]?.arrival_airport?.name ||
+                          flight.arrival ||
+                          "Arrival";
+
+    return `[FLIGHT_WIDGET]\n${JSON.stringify({
+      airline: flight.airline || flight.airlines?.[0] || "Multiple Airlines",
+      flightNumber: flight.flight_number || flight.flights?.[0]?.flight_number || "Multiple",
+      price: flight.price || "Check airline",
+      departure: departureAirport,
+      arrival: arrivalAirport,
+      departureTime: departureTime,
+      arrivalTime: arrivalTime,
+      duration: flight.duration || flight.total_duration || "N/A",
+      stops: flight.stops || flight.layovers?.length || 0,
+      bookingLink: flight.booking_link || "#",
+      carbonEmissions: flight.carbon_emissions?.total || "N/A"
+    }, null, 2)}\n[/FLIGHT_WIDGET]`;
+  }).join('\n\n');
 }
 
-function formatFlightsAsWidgets(flights) {
-  if (!flights?.length) {
-    return 'No flights found for this route. Please try different dates or destinations.';
+function formatHotelsAsWidgets(hotels, maxPriceFilter = null) {
+  if (!hotels || hotels.length === 0) {
+    return "I couldn't find any hotels matching your criteria. Try adjusting your search parameters.";
   }
-  
-  let response = '';
-  flights.slice(0, 6).forEach(flight => {
-    response += `[FLIGHT_WIDGET]\n`;
-    response += JSON.stringify({
-      airline: flight.airline || 'Unknown Airline',
-      flightNumber: flight.flightNumber || `${flight.airline?.split(' ')[0] || 'XX'} ${Math.floor(Math.random() * 900) + 100}`,
-      price: flight.price || 'Price not available',
-      departure: flight.departure || 'Unknown',
-      arrival: flight.arrival || 'Unknown',
-      departureTime: flight.departureTime || 'TBA',
-      arrivalTime: flight.arrivalTime || 'TBA',
-      duration: flight.duration || 'Unknown',
-      stops: flight.stops || 0,
-      bookingLink: flight.bookingLink || '#',
-      carbonEmissions: flight.carbonEmissions || 'N/A'
-    }, null, 2);
-    response += `\n[/FLIGHT_WIDGET]\n\n`;
+
+  // Enhanced price extraction and filtering
+  let processedHotels = hotels.map(hotel => {
+    // Try multiple price fields
+    let priceValue = hotel.rate_per_night?.extracted || 
+                     hotel.rate_per_night?.low ||
+                     hotel.price ||
+                     hotel.total_rate?.extracted ||
+                     null;
+    
+    // Extract numeric value if it's a string
+    let numericPrice = null;
+    if (priceValue) {
+      if (typeof priceValue === 'string') {
+        // Remove currency symbols and extract number
+        const match = priceValue.match(/[\d,]+/);
+        if (match) {
+          numericPrice = parseInt(match[0].replace(/,/g, ''));
+        }
+      } else if (typeof priceValue === 'number') {
+        numericPrice = priceValue;
+      }
+    }
+
+    // Format price for display
+    let displayPrice = priceValue;
+    if (numericPrice) {
+      displayPrice = `$${numericPrice}`;
+    } else if (!priceValue) {
+      displayPrice = "Price not available";
+    }
+
+    return {
+      ...hotel,
+      numericPrice: numericPrice,
+      displayPrice: displayPrice
+    };
   });
+
+  // Filter by price if specified
+  if (maxPriceFilter) {
+    console.log(`   Filtering hotels under $${maxPriceFilter}`);
+    const filtered = processedHotels.filter(hotel => {
+      if (!hotel.numericPrice) {
+        console.log(`   Hotel ${hotel.name}: No price, including`);
+        return true; // Include hotels without prices
+      }
+      console.log(`   Hotel ${hotel.name}: $${hotel.numericPrice} ${hotel.numericPrice <= maxPriceFilter ? '✓' : '✗'}`);
+      return hotel.numericPrice <= maxPriceFilter;
+    });
+    
+    if (filtered.length > 0) {
+      processedHotels = filtered;
+    } else {
+      // If nothing under budget, show all with a note
+      return `Note: No hotels found under $${maxPriceFilter}. Here are available options:\n\n` +
+        processedHotels.slice(0, 6).map(hotel => formatSingleHotel(hotel)).join('\n\n');
+    }
+  }
+
+  return processedHotels.slice(0, 6).map(hotel => formatSingleHotel(hotel)).join('\n\n');
+}
+
+function formatSingleHotel(hotel) {
+  // Get the best quality image available
+  const image = hotel.images?.[0]?.original || 
+                hotel.images?.[0]?.thumbnail ||
+                hotel.image ||
+                hotel.thumbnail ||
+                "";
   
-  return response;
+  // Replace thumbnail with larger size if it's a Google image
+  const highQualityImage = image.includes('googleusercontent.com') && image.includes('=s') 
+    ? image.replace(/=s\d+/, '=s1000') // Request 1000px image
+    : image.includes('googleusercontent.com') && image.includes('=w')
+    ? image.replace(/=w\d+-h\d+/, '=w800-h600') // Request larger dimensions
+    : image;
+
+  return `[HOTEL_WIDGET]\n${JSON.stringify({
+    name: hotel.name || "Hotel Name",
+    rating: hotel.overall_rating || hotel.rating || 0,
+    reviews: hotel.reviews || hotel.total_reviews || 0,
+    price: hotel.displayPrice || hotel.rate_per_night?.extracted || hotel.price || "$--",
+    location: hotel.neighborhood || hotel.location || hotel.city || "Location",
+    link: hotel.link || hotel.serpapi_link || "#",
+    image: highQualityImage,
+    mapUrl: hotel.gps_coordinates ? 
+      `https://maps.google.com/?q=${hotel.gps_coordinates.latitude},${hotel.gps_coordinates.longitude}` :
+      hotel.map_link || "#",
+    address: hotel.address || hotel.location || "Address not available"
+  }, null, 2)}\n[/HOTEL_WIDGET]`;
 }
 
 function formatPOIsAsWidgets(pois) {
-  if (!pois?.length) {
-    return 'No attractions found in this location. Please try a different area.';
+  if (!pois || pois.length === 0) {
+    return "I couldn't find attractions for this location. Try searching for a different city.";
   }
-  
-  let response = '';
-  pois.slice(0, 9).forEach(poi => {
-    response += `[POI_WIDGET]\n`;
-    response += JSON.stringify({
-      name: poi.name || 'Attraction',
-      rating: poi.rating || 4.5,
-      reviews: poi.reviews || 0,
-      type: poi.type || 'Tourist Attraction',
-      price: poi.price || 'Free',
-      address: poi.address || 'Address not available',
-      hours: poi.hours || 'Check website for hours',
-      image: poi.image || 'https://via.placeholder.com/400x300?text=Attraction',
-      mapUrl: poi.mapUrl || `https://maps.google.com/maps?q=${encodeURIComponent(poi.name)}`,
-      description: poi.description || 'Popular tourist attraction',
-      website: poi.website || '#'
-    }, null, 2);
-    response += `\n[/POI_WIDGET]\n\n`;
-  });
-  
-  return response;
+
+  return pois.slice(0, 6).map(poi => {
+    // Get high quality image
+    const image = poi.thumbnail || poi.image || "";
+    const highQualityImage = image.includes('googleusercontent.com') 
+      ? image.replace(/=s\d+/, '=s800').replace(/=w\d+-h\d+/, '=w800-h600')
+      : image;
+
+    return `[POI_WIDGET]\n${JSON.stringify({
+      name: poi.title || poi.name || "Attraction",
+      rating: poi.rating || 0,
+      reviews: poi.reviews || poi.reviews_original || 0,
+      type: poi.type || "Attraction",
+      price: poi.price || poi.ticket_prices?.[0]?.price || "Free",
+      address: poi.address || poi.location || "Location",
+      hours: poi.hours || poi.operating_hours?.Monday || "Check website",
+      image: highQualityImage,
+      mapUrl: poi.gps_coordinates ? 
+        `https://maps.google.com/?q=${poi.gps_coordinates.latitude},${poi.gps_coordinates.longitude}` :
+        poi.links?.directions || "#",
+      description: poi.description || poi.snippet || "Popular attraction",
+      website: poi.website || poi.link || "#"
+    }, null, 2)}\n[/POI_WIDGET]`;
+  }).join('\n\n');
 }
 
 function formatRestaurantsAsWidgets(restaurants) {
-  if (!restaurants?.length) {
-    return 'No restaurants found in this location. Please try a different area or cuisine.';
+  if (!restaurants || restaurants.length === 0) {
+    return "I couldn't find restaurants in this area. Try searching for a different location.";
   }
-  
-  let response = '';
-  restaurants.slice(0, 9).forEach(restaurant => {
-    response += `[RESTAURANT_WIDGET]\n`;
-    response += JSON.stringify({
-      name: restaurant.name || 'Restaurant',
-      rating: restaurant.rating || 4.0,
-      reviews: restaurant.reviews || 0,
-      cuisine: restaurant.cuisine || 'International',
-      priceLevel: restaurant.priceLevel || '$$',
-      address: restaurant.address || 'Address not available',
-      hours: restaurant.hours || 'Check for hours',
-      image: restaurant.image || 'https://via.placeholder.com/400x300?text=Restaurant',
-      mapUrl: restaurant.mapUrl || `https://maps.google.com/maps?q=${encodeURIComponent(restaurant.name)}`,
-      phone: restaurant.phone || 'Phone not available',
-      website: restaurant.website || '#',
-      dineIn: restaurant.dineIn !== undefined ? restaurant.dineIn : true,
-      takeout: restaurant.takeout !== undefined ? restaurant.takeout : true,
-      delivery: restaurant.delivery !== undefined ? restaurant.delivery : false
-    }, null, 2);
-    response += `\n[/RESTAURANT_WIDGET]\n\n`;
-  });
-  
-  return response;
+
+  return restaurants.slice(0, 6).map(restaurant => {
+    // Get high quality image
+    const image = restaurant.thumbnail || restaurant.image || "";
+    const highQualityImage = image.includes('googleusercontent.com')
+      ? image.replace(/=s\d+/, '=s800').replace(/=w\d+-h\d+/, '=w800-h600')
+      : image;
+
+    return `[RESTAURANT_WIDGET]\n${JSON.stringify({
+      name: restaurant.title || restaurant.name || "Restaurant",
+      rating: restaurant.rating || 0,
+      reviews: restaurant.reviews || restaurant.reviews_original || 0,
+      cuisine: restaurant.cuisine || restaurant.type || "Restaurant",
+      priceLevel: restaurant.price || restaurant.price_level || "$$",
+      address: restaurant.address || "Address",
+      hours: restaurant.hours || restaurant.operating_hours?.Monday || "Check website",
+      image: highQualityImage,
+      mapUrl: restaurant.gps_coordinates ?
+        `https://maps.google.com/?q=${restaurant.gps_coordinates.latitude},${restaurant.gps_coordinates.longitude}` :
+        restaurant.links?.directions || "#",
+      phone: restaurant.phone || "Not available",
+      website: restaurant.website || restaurant.link || "#",
+      dineIn: restaurant.dine_in !== false,
+      takeout: restaurant.takeout !== false,
+      delivery: restaurant.delivery !== false
+    }, null, 2)}\n[/RESTAURANT_WIDGET]`;
+  }).join('\n\n');
 }
 
 function formatWeatherAsWidget(weather, location) {
   if (!weather || !weather.data || weather.data.length === 0) {
-    return 'Weather information not available for this location.';
+    return 'Weather data is not available for this location.';
   }
   
   const forecast = weather.data.slice(0, 10).map((day, index) => {
@@ -370,67 +498,112 @@ function getWeatherIcon(condition) {
   return 'partly-cloudy';
 }
 
+// MAIN CHAT ENDPOINT - Fixed session handling
 app.post('/api/chat', async (req, res) => {
   try {
-    const { message, language = 'en' } = req.body;
+    const { message, sessionId = 'default', language = 'en' } = req.body;
     console.log('📥 Received message:', message);
+    
+    // Get or create session
+    const session = getSession(sessionId);
+    
+    // Add user message to history
+    session.messages.push({ role: 'user', content: message });
+    
+    // Keep only last 5 messages for context
+    const recentMessages = session.messages.slice(-5);
+    
+    // Build messages array - filter out tool calls
+    const messagesForAPI = [
+      { role: 'system', content: SYSTEM_PROMPT },
+      ...recentMessages.filter(msg => !msg.tool_calls && !msg.tool_call_id)
+    ];
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: SYSTEM_PROMPT,
-      tools: [{ functionDeclarations }]
+    // Create chat completion with DeepSeek
+    const completion = await deepseek.chat.completions.create({
+      model: 'deepseek-coder', // Faster model
+      messages: messagesForAPI,
+      tools: tools,
+      tool_choice: 'auto',
+      temperature: 0.7,
+      max_tokens: 2000
     });
 
-    const chat = model.startChat();
-    const result = await chat.sendMessage(message);
+    const responseMessage = completion.choices[0].message;
 
-    // Check for function calls
-    const functionCall = result.response.functionCalls()?.[0];
-    
-    if (functionCall) {
-      const { name, args } = functionCall;
-      console.log(`🔧 Calling function: ${name}`, args);
+    // Check if the model wants to use a tool
+    if (responseMessage.tool_calls) {
+      const toolCall = responseMessage.tool_calls[0];
+      const functionName = toolCall.function.name;
+      const functionArgs = JSON.parse(toolCall.function.arguments);
+      
+      console.log(`🔧 Calling function: ${functionName}`, functionArgs);
 
       let apiResult;
       let formattedResponse;
 
-      switch (name) {
+      switch (functionName) {
         case 'searchFlights':
-          apiResult = await searchFlights(args);
+          apiResult = await searchFlights(functionArgs);
+          console.log('✈️ Flight data received:', JSON.stringify(apiResult.data?.[0], null, 2));
           formattedResponse = formatFlightsAsWidgets(apiResult.data);
           break;
 
         case 'searchHotels':
-          apiResult = await searchHotels(args);
-          formattedResponse = formatHotelsAsWidgets(apiResult.data, args.maxPrice);
+          apiResult = await searchHotels(functionArgs);
+          console.log('🏨 Hotel data received:', JSON.stringify(apiResult.data?.[0], null, 2));
+          formattedResponse = formatHotelsAsWidgets(apiResult.data, functionArgs.maxPrice);
+          session.context.lastCity = functionArgs.city;
           break;
 
         case 'searchPOI':
-          apiResult = await searchPOI(args);
+          apiResult = await searchPOI(functionArgs);
           formattedResponse = formatPOIsAsWidgets(apiResult.data);
+          session.context.lastLocation = functionArgs.location;
           break;
 
         case 'searchRestaurants':
-          apiResult = await searchRestaurants(args);
+          apiResult = await searchRestaurants(functionArgs);
           formattedResponse = formatRestaurantsAsWidgets(apiResult.data);
+          session.context.lastLocation = functionArgs.location;
           break;
 
         case 'getWeather':
-          // Always fetch 10 days for weather
-          apiResult = await getWeather({ ...args, days: 10 });
-          formattedResponse = formatWeatherAsWidget(apiResult, args.location);
+          apiResult = await getWeather({ ...functionArgs, days: 10 });
+          formattedResponse = formatWeatherAsWidget(apiResult, functionArgs.location);
+          session.context.lastLocation = functionArgs.location;
           break;
 
         default:
           formattedResponse = 'I couldn\'t process that request. Please try again.';
       }
 
+      // Store only the formatted response, not tool_calls
+      session.messages.push({ 
+        role: 'assistant', 
+        content: formattedResponse 
+      });
+
       console.log('✅ Formatted response ready');
-      res.json({ response: formattedResponse });
+      res.json({ 
+        response: formattedResponse,
+        sessionId: sessionId 
+      });
     } else {
-      const textResponse = result.response.text();
+      // Regular text response
+      const textResponse = responseMessage.content;
       console.log('💬 Text response:', textResponse);
-      res.json({ response: textResponse });
+      
+      // Add assistant response to history
+      session.messages.push({ 
+        role: 'assistant', 
+        content: textResponse 
+      });
+      
+      res.json({ 
+        response: textResponse,
+        sessionId: sessionId 
+      });
     }
 
   } catch (error) {
@@ -442,7 +615,18 @@ app.post('/api/chat', async (req, res) => {
   }
 });
 
+// Clear session endpoint
+app.post('/api/clear-session', (req, res) => {
+  const { sessionId = 'default' } = req.body;
+  sessions.delete(sessionId);
+  res.json({ message: 'Session cleared' });
+});
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
+  console.log(`🤖 Using DeepSeek API (deepseek-coder for speed)`);
+  console.log(`🔍 SerpAPI integration active`);
+  console.log(`💾 Session memory enabled`);
+  console.log(`🖼️ High-quality images enabled`);
 });

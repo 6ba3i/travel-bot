@@ -150,6 +150,7 @@ const FlightWidget: React.FC<{ flight: FlightData; index: number; language: Lang
   };
   
   return (
+    
     <div
       className={`relative group cursor-pointer transition-all duration-500 transform
         ${isHovered ? 'scale-[1.02] -translate-y-1' : 'scale-100 translate-y-0'}`}
