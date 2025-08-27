@@ -1,4 +1,4 @@
-// src/lib/serpApi.js - Enhanced with POI, Restaurants, and better image handling
+// src/lib/serpApi.js - Fixed with better data extraction
 import 'dotenv/config';
 
 const SERPAPI_KEY = process.env.SERPAPI_KEY;
@@ -7,70 +7,60 @@ const BASE_URL = 'https://serpapi.com/search';
 console.log('🔧 SerpApi Integration Loaded');
 console.log(`   API Key: ${SERPAPI_KEY ? 'Configured ✅' : 'Missing ❌'}`);
 
-// Global airport code mapping (enhanced)
+// Global airport code mapping
 const AIRPORT_CODES = {
   'casablanca': 'CMN', 'mohammed v': 'CMN', 'الدار البيضاء': 'CMN', '卡萨布兰卡': 'CMN',
   'marrakech': 'RAK', 'menara': 'RAK', 'مراكش': 'RAK', '马拉喀什': 'RAK',
-  'rabat': 'RBA', 'sale': 'RBA', 'الرباط': 'RBA', '拉巴特': 'RBA',
   'barcelona': 'BCN', 'el prat': 'BCN', 'برشلونة': 'BCN', '巴塞罗那': 'BCN',
   'madrid': 'MAD', 'barajas': 'MAD', 'مدريد': 'MAD', '马德里': 'MAD',
   'paris': 'CDG', 'charles de gaulle': 'CDG', 'باريس': 'CDG', '巴黎': 'CDG',
   'london': 'LHR', 'heathrow': 'LHR', 'لندن': 'LHR', '伦敦': 'LHR',
-  'new york': 'JFK', 'jfk': 'JFK', 'نيويورك': 'JFK', '纽约': 'JFK',
+  'new york': 'JFK', 'newyork': 'JFK', 'jfk': 'JFK', 'نيويورك': 'JFK', '纽约': 'JFK',
   'dubai': 'DXB', 'دبي': 'DXB', '迪拜': 'DXB',
   'tokyo': 'NRT', 'narita': 'NRT', 'طوكيو': 'NRT', '东京': 'NRT',
   'istanbul': 'IST', 'اسطنبول': 'IST', '伊斯坦布尔': 'IST',
-  'frankfurt': 'FRA', 'فرانكفورت': 'FRA', '法兰克福': 'FRA',
-  'amsterdam': 'AMS', 'schiphol': 'AMS', 'أمستردام': 'AMS', '阿姆斯特丹': 'AMS',
-  'munich': 'MUC', 'ميونخ': 'MUC', '慕尼黑': 'MUC',
-  'rome': 'FCO', 'fiumicino': 'FCO', 'روما': 'FCO', '罗马': 'FCO',
-  'lisbon': 'LIS', 'لشبونة': 'LIS', '里斯本': 'LIS',
-  'cairo': 'CAI', 'القاهرة': 'CAI', '开罗': 'CAI',
-  'hong kong': 'HKG', 'هونغ كونغ': 'HKG', '香港': 'HKG',
-  'singapore': 'SIN', 'changi': 'SIN', 'سنغافورة': 'SIN', '新加坡': 'SIN',
-  'bangkok': 'BKK', 'suvarnabhumi': 'BKK', 'بانكوك': 'BKK', '曼谷': 'BKK',
-  'beijing': 'PEK', 'بكين': 'PEK', '北京': 'PEK'
+  'los angeles': 'LAX', 'la': 'LAX', 'لوس أنجلوس': 'LAX', '洛杉矶': 'LAX',
+  'san francisco': 'SFO', 'sf': 'SFO', 'سان فرانسيسكو': 'SFO', '旧金山': 'SFO',
+  'chicago': 'ORD', 'o\'hare': 'ORD', 'شيكاغو': 'ORD', '芝加哥': 'ORD',
+  'miami': 'MIA', 'ميامي': 'MIA', '迈阿密': 'MIA',
+  'boston': 'BOS', 'logan': 'BOS', 'بوسطن': 'BOS', '波士顿': 'BOS'
 };
 
-// City coordinates for weather (enhanced)
+// City coordinates for weather
 const CITY_COORDINATES = {
   'casablanca': { lat: 33.5731, lon: -7.5898 },
-  'marrakech': { lat: 31.6295, lon: -7.9811 },
-  'rabat': { lat: 33.9716, lon: -6.8498 },
   'barcelona': { lat: 41.3851, lon: 2.1734 },
-  'madrid': { lat: 40.4168, lon: -3.7038 },
   'paris': { lat: 48.8566, lon: 2.3522 },
-  'london': { lat: 51.5074, lon: -0.1278 },
   'new york': { lat: 40.7128, lon: -74.0060 },
+  'newyork': { lat: 40.7128, lon: -74.0060 },
   'dubai': { lat: 25.2048, lon: 55.2708 },
   'tokyo': { lat: 35.6762, lon: 139.6503 },
-  'istanbul': { lat: 41.0082, lon: 28.9784 },
-  'frankfurt': { lat: 50.1109, lon: 8.6821 },
-  'amsterdam': { lat: 52.3676, lon: 4.9041 },
-  'munich': { lat: 48.1351, lon: 11.5820 },
-  'rome': { lat: 41.9028, lon: 12.4964 },
-  'lisbon': { lat: 38.7223, lon: -9.1393 },
-  'cairo': { lat: 30.0444, lon: 31.2357 },
-  'hong kong': { lat: 22.3193, lon: 114.1694 },
-  'singapore': { lat: 1.3521, lon: 103.8198 },
-  'bangkok': { lat: 13.7563, lon: 100.5018 }
+  'london': { lat: 51.5074, lon: -0.1278 },
+  'los angeles': { lat: 34.0522, lon: -118.2437 },
+  'chicago': { lat: 41.8781, lon: -87.6298 },
+  'miami': { lat: 25.7617, lon: -80.1918 }
 };
 
-// Convert city name to airport code
+// Convert city name to airport code - FIXED
 function getAirportCode(city) {
+  // If it's already a 3-letter uppercase code, return as-is
+  if (city && city.length === 3 && city === city.toUpperCase()) {
+    console.log(`   ✅ Already an airport code: ${city}`);
+    return city;
+  }
+  
   const normalized = city.toLowerCase().trim();
   
+  // Check our mapping
   for (const [key, code] of Object.entries(AIRPORT_CODES)) {
-    if (normalized.includes(key) || key.includes(normalized)) {
+    if (normalized === key || normalized.includes(key) || key.includes(normalized)) {
+      console.log(`   📍 Converted "${city}" → ${code}`);
       return code;
     }
   }
   
-  if (normalized.length === 3 && normalized === normalized.toUpperCase()) {
-    return normalized;
-  }
-  
-  console.warn(`No airport code found for: ${city}, using as-is`);
+  // If not found, return original (might be a valid code we don't know)
+  console.log(`   ⚠️ Unknown location "${city}", using as-is`);
   return city;
 }
 
@@ -79,11 +69,12 @@ async function getCityCoordinates(location) {
   const normalized = location.toLowerCase().trim();
   
   for (const [city, coords] of Object.entries(CITY_COORDINATES)) {
-    if (normalized.includes(city) || city.includes(normalized)) {
+    if (normalized === city || normalized.includes(city) || city.includes(normalized)) {
       return coords;
     }
   }
   
+  // Fallback to Google Maps API
   try {
     const params = new URLSearchParams({
       engine: 'google_maps',
@@ -95,26 +86,23 @@ async function getCityCoordinates(location) {
     const data = await res.json();
     
     if (data.place_results?.gps_coordinates) {
-      const coords = {
+      return {
         lat: data.place_results.gps_coordinates.latitude,
         lon: data.place_results.gps_coordinates.longitude
       };
-      console.log(`   Found coordinates via Google Maps: ${coords.lat}, ${coords.lon}`);
-      return coords;
     }
   } catch (error) {
     console.error('Error getting coordinates:', error.message);
   }
   
-  console.warn(`Could not find coordinates for: ${location}`);
   return { lat: 0, lon: 0 };
 }
 
-// 🛫 FLIGHTS - Enhanced with automatic airport code conversion
+// 🛫 FLIGHTS - Enhanced with better time extraction
 export async function searchFlights({
   origin,
   destination,
-  date,
+  departureDate,
   returnDate,
   adults = 1,
   tripType = 'one_way'
@@ -130,13 +118,14 @@ export async function searchFlights({
     const originCode = getAirportCode(origin);
     const destCode = getAirportCode(destination);
     
-    console.log(`   Route: ${origin} (${originCode}) → ${destination} (${destCode})`);
+    console.log(`   Route: ${originCode} → ${destCode}`);
+    console.log(`   Date: ${departureDate}`);
 
     const params = new URLSearchParams({
       engine: 'google_flights',
       departure_id: originCode,
       arrival_id: destCode,
-      outbound_date: date,
+      outbound_date: departureDate,
       adults: adults.toString(),
       currency: 'USD',
       hl: 'en',
@@ -145,9 +134,9 @@ export async function searchFlights({
 
     if (tripType === 'round_trip' && returnDate) {
       params.append('return_date', returnDate);
-      params.append('type', '1');
+      params.append('type', '1');  // Round trip
     } else {
-      params.append('type', '2');
+      params.append('type', '2');  // One way
     }
 
     const res = await fetch(`${BASE_URL}?${params}`);
@@ -158,39 +147,69 @@ export async function searchFlights({
       return { data: [] };
     }
 
-    const flights = (data.best_flights || data.other_flights || []).map(flight => {
-      // Extract airline name more carefully
+    // Combine best flights and other flights
+    const allFlights = [...(data.best_flights || []), ...(data.other_flights || [])];
+    
+    const flights = allFlights.slice(0, 10).map(flight => {
+      // Extract airline name
       const airlineName = flight.airlines?.[0] || 
                          flight.flights?.[0]?.airline ||
-                         'Unknown Airline';
+                         'Multiple Airlines';
       
-      // Get departure and arrival info
-      const departureAirport = flight.departure_airport?.name || 
-                              flight.flights?.[0]?.departure_airport?.name ||
-                              originCode;
+      // Extract departure details
+      const depAirport = flight.departure_airport || {};
+      const departureAirportName = depAirport.name || originCode;
+      const departureTime = depAirport.time || flight.flights?.[0]?.departure_airport?.time || '';
       
-      const arrivalAirport = flight.arrival_airport?.name || 
-                            flight.flights?.[flight.flights?.length - 1]?.arrival_airport?.name ||
-                            destCode;
+      // Extract arrival details
+      const arrAirport = flight.arrival_airport || {};
+      const arrivalAirportName = arrAirport.name || destCode;
+      const arrivalTime = arrAirport.time || 
+                         flight.flights?.[flight.flights?.length - 1]?.arrival_airport?.time || '';
+      
+      // Extract price
+      let price = 'Check airline';
+      if (flight.price) {
+        price = typeof flight.price === 'number' ? `USD ${flight.price}` : flight.price;
+      }
+      
+      // Extract duration
+      const duration = flight.total_duration || 
+                      flight.duration || 
+                      flight.flights?.[0]?.duration || 
+                      'N/A';
       
       return {
         airline: airlineName,
-        price: flight.price ? `USD ${flight.price}` : 'Price unavailable',
-        departure: departureAirport,
-        arrival: arrivalAirport,
-        departureTime: flight.departure_time || flight.flights?.[0]?.departure_time || 'N/A',
-        arrivalTime: flight.arrival_time || flight.flights?.[flight.flights?.length - 1]?.arrival_time || 'N/A',
-        duration: flight.total_duration || flight.duration || 'N/A',
-        stops: flight.layovers?.length || flight.stops || 0,
-        bookingLink: flight.booking_link || '#',
-        carbonEmissions: flight.carbon_emissions?.this_flight ? 
-          `${flight.carbon_emissions.this_flight}kg` : undefined,
-        layovers: flight.layovers,
-        flightNumber: flight.flights?.[0]?.flight_number || ''
+        flight_number: flight.flights?.[0]?.flight_number || 'Multiple',
+        price: price,
+        departure_airport: {
+          name: departureAirportName,
+          time: departureTime,
+          id: depAirport.id || originCode
+        },
+        arrival_airport: {
+          name: arrivalAirportName,
+          time: arrivalTime,
+          id: arrAirport.id || destCode
+        },
+        duration: duration,
+        stops: flight.layovers?.length || 0,
+        booking_link: flight.booking_link || '#',
+        carbon_emissions: {
+          total: flight.carbon_emissions?.this_flight ? 
+            `${flight.carbon_emissions.this_flight}kg` : 'N/A'
+        },
+        departure_time: departureTime, // Added for backward compatibility
+        arrival_time: arrivalTime      // Added for backward compatibility
       };
     });
 
     console.log(`✅ Found ${flights.length} flights`);
+    if (flights.length > 0) {
+      console.log('   Sample flight:', JSON.stringify(flights[0], null, 2));
+    }
+    
     return { data: flights };
 
   } catch (error) {
@@ -199,13 +218,14 @@ export async function searchFlights({
   }
 }
 
-// 🏨 HOTELS - Enhanced with better image handling
+// 🏨 HOTELS - Enhanced with better price extraction
 export async function searchHotels({
-  location,
+  city,
   checkIn,
   checkOut,
   adults = 2,
-  children = 0
+  maxPrice,
+  minPrice
 }) {
   try {
     console.log('🏨 Searching hotels with SerpApi Google Hotels...');
@@ -215,14 +235,18 @@ export async function searchHotels({
       return { data: [] };
     }
 
+    console.log(`   Location: ${city}`);
+    console.log(`   Dates: ${checkIn} to ${checkOut}`);
+    if (maxPrice) console.log(`   Max price: $${maxPrice}`);
+
     const params = new URLSearchParams({
       engine: 'google_hotels',
-      q: location,
+      q: city,
       check_in_date: checkIn,
       check_out_date: checkOut,
       adults: adults.toString(),
-      children: children.toString(),
       currency: 'USD',
+      hl: 'en',
       api_key: SERPAPI_KEY
     });
 
@@ -234,34 +258,65 @@ export async function searchHotels({
       return { data: [] };
     }
 
-    const hotelsWithImages = await Promise.all(
-      (data.properties || []).slice(0, 9).map(async (hotel) => {
-        let images = [];
-        try {
-          images = await getImages(`${hotel.name} ${location} hotel`, 'hotel');
-        } catch (error) {
-          console.warn(`Failed to get images for ${hotel.name}`);
-        }
-        
-        return {
-          name: hotel.name,
-          rating: hotel.overall_rating || 4.5,
-          reviews: hotel.reviews || 'No reviews',
-          price: `$${hotel.rate_per_night?.extracted_lowest || hotel.total_rate?.extracted_lowest || 'N/A'}`,
-          location: location,
-          link: hotel.link || '#',
-          amenities: hotel.amenities || [],
-          image: images.length > 0 ? images[0].url : null,
-          mapUrl: hotel.gps_coordinates ? 
-            `https://maps.google.com/maps?q=${hotel.gps_coordinates.latitude},${hotel.gps_coordinates.longitude}` :
-            `https://maps.google.com/maps?q=${encodeURIComponent(hotel.name + ' ' + location)}`,
-          address: hotel.address || location
-        };
-      })
-    );
+    const hotels = (data.properties || []).map(hotel => {
+      // Extract price from various possible fields
+      let price = null;
+      
+      // Try different price fields in order of preference
+      if (hotel.rate_per_night?.extracted) {
+        price = hotel.rate_per_night.extracted;
+      } else if (hotel.rate_per_night?.lowest) {
+        price = hotel.rate_per_night.lowest;
+      } else if (hotel.total_rate?.extracted) {
+        price = hotel.total_rate.extracted;
+      } else if (hotel.price) {
+        price = hotel.price;
+      }
+      
+      // Format price as string
+      if (typeof price === 'number') {
+        price = `$${price}`;
+      } else if (!price) {
+        price = 'Contact for price';
+      }
+      
+      // Get high quality images
+      const images = hotel.images || [];
+      const image = images[0]?.original || images[0]?.thumbnail || '';
+      
+      return {
+        name: hotel.name || 'Hotel',
+        price: price,
+        rate_per_night: hotel.rate_per_night || { extracted: price },
+        rating: hotel.overall_rating || hotel.rating || 0,
+        reviews: hotel.reviews || hotel.total_reviews || 0,
+        link: hotel.link || hotel.serpapi_link || '#',
+        image: image,
+        images: images,
+        location: hotel.neighborhood || city,
+        city: city,
+        address: hotel.address || '',
+        gps_coordinates: hotel.gps_coordinates || null,
+        amenities: hotel.amenities || [],
+        nearby_places: hotel.nearby_places || [],
+        hotel_class: hotel.hotel_class || null,
+        check_in_time: hotel.check_in_time || '',
+        check_out_time: hotel.check_out_time || '',
+        overall_rating: hotel.overall_rating || 0,
+        total_reviews: hotel.reviews || 0
+      };
+    });
 
-    console.log(`✅ Found ${hotelsWithImages.length} hotels`);
-    return { data: hotelsWithImages };
+    console.log(`✅ Found ${hotels.length} hotels`);
+    if (hotels.length > 0) {
+      console.log('   Sample hotel:', {
+        name: hotels[0].name,
+        price: hotels[0].price,
+        rating: hotels[0].rating
+      });
+    }
+    
+    return { data: hotels };
 
   } catch (error) {
     console.error('❌ SerpApi Hotels error:', error.message);
@@ -269,23 +324,16 @@ export async function searchHotels({
   }
 }
 
-// 📍 POINTS OF INTEREST - Enhanced with images
-export async function searchPOI({ 
-  location, 
-  query = 'tourist attractions must visit iconic places',
-  limit = 9 
-}) {
+// 🍴 RESTAURANTS - Enhanced with better image quality
+export async function searchRestaurants({ location, cuisine }) {
   try {
-    console.log('📍 Searching POIs with SerpApi Google Local...');
+    console.log('🍴 Searching restaurants with SerpApi Google Local...');
     
-    if (!SERPAPI_KEY) {
-      console.error('❌ SERPAPI_KEY is missing!');
-      return { data: [] };
-    }
-
+    const query = cuisine ? `${cuisine} restaurants in ${location}` : `restaurants in ${location}`;
+    
     const params = new URLSearchParams({
       engine: 'google_local',
-      q: `${query} in ${location}`,
+      q: query,
       hl: 'en',
       api_key: SERPAPI_KEY
     });
@@ -298,113 +346,35 @@ export async function searchPOI({
       return { data: [] };
     }
 
-    const poisWithImages = await Promise.all(
-      (data.local_results || []).slice(0, limit).map(async (poi) => {
-        let images = [];
-        try {
-          images = await getImages(`${poi.title} ${location}`, 'poi');
-        } catch (error) {
-          console.warn(`Failed to get images for ${poi.title}`);
-        }
+    const restaurants = (data.local_results || []).slice(0, 10).map(restaurant => ({
+      title: restaurant.title,
+      name: restaurant.title,
+      rating: restaurant.rating || 0,
+      reviews: restaurant.reviews || 0,
+      reviews_original: restaurant.reviews_original || '',
+      price: restaurant.price || '$$',
+      price_level: restaurant.price || '$$',
+      cuisine: cuisine || restaurant.type || 'Restaurant',
+      type: restaurant.type || 'Restaurant',
+      address: restaurant.address || '',
+      hours: restaurant.hours || restaurant.operating_hours?.Monday || 'Check website',
+      operating_hours: restaurant.operating_hours || {},
+      phone: restaurant.phone || '',
+      website: restaurant.website || restaurant.link || '#',
+      link: restaurant.link || '#',
+      thumbnail: restaurant.thumbnail || '',
+      image: restaurant.thumbnail || '',
+      gps_coordinates: restaurant.gps_coordinates || null,
+      links: restaurant.links || {},
+      place_id: restaurant.place_id || '',
+      dine_in: restaurant.dine_in !== false,
+      takeout: restaurant.takeout !== false,
+      delivery: restaurant.delivery || false,
+      service_options: restaurant.service_options || {}
+    }));
 
-        return {
-          name: poi.title,
-          rating: poi.rating || 4.5,
-          reviews: poi.reviews || 0,
-          address: poi.address || location,
-          hours: poi.hours || 'Hours not available',
-          phone: poi.phone,
-          website: poi.website,
-          image: images.length > 0 ? images[0].url : null,
-          mapUrl: poi.gps_coordinates ? 
-            `https://maps.google.com/maps?q=${poi.gps_coordinates.latitude},${poi.gps_coordinates.longitude}` :
-            `https://maps.google.com/maps?q=${encodeURIComponent(poi.title + ' ' + location)}`,
-          description: poi.description || poi.type || 'Tourist attraction',
-          type: poi.type || 'Attraction',
-          price: poi.price || 'Free'
-        };
-      })
-    );
-
-    console.log(`✅ Found ${poisWithImages.length} POIs`);
-    return { data: poisWithImages };
-
-  } catch (error) {
-    console.error('❌ SerpApi POI error:', error.message);
-    return { data: [] };
-  }
-}
-
-// 🍽️ RESTAURANTS - New function for restaurant search
-export async function searchRestaurants({ 
-  location, 
-  cuisine = '',
-  priceRange = '',
-  limit = 9 
-}) {
-  try {
-    console.log('🍽️ Searching restaurants with SerpApi Google Local...');
-    
-    if (!SERPAPI_KEY) {
-      console.error('❌ SERPAPI_KEY is missing!');
-      return { data: [] };
-    }
-
-    let searchQuery = `restaurants in ${location}`;
-    if (cuisine) searchQuery = `${cuisine} restaurants in ${location}`;
-    if (priceRange) searchQuery += ` ${priceRange}`;
-
-    const params = new URLSearchParams({
-      engine: 'google_local',
-      q: searchQuery,
-      hl: 'en',
-      api_key: SERPAPI_KEY
-    });
-
-    const res = await fetch(`${BASE_URL}?${params}`);
-    const data = await res.json();
-
-    if (data.error) {
-      console.error('❌ SerpApi error:', data.error);
-      return { data: [] };
-    }
-
-    console.log(`✅ Found ${data.local_results?.length || 0} restaurants`);
-    console.log('📊 Full Restaurant Response:', JSON.stringify(data.local_results?.slice(0, 2), null, 2));
-
-    const restaurantsWithImages = await Promise.all(
-      (data.local_results || []).slice(0, limit).map(async (restaurant) => {
-        let images = [];
-        try {
-          images = await getImages(`${restaurant.title} ${location} restaurant`, 'restaurant');
-        } catch (error) {
-          console.warn(`Failed to get images for ${restaurant.title}`);
-        }
-
-        // Create Google Maps URL with place name
-        const mapUrl = `https://maps.google.com/maps?q=${encodeURIComponent(restaurant.title + ' ' + location)}`;
-
-        return {
-          name: restaurant.title,
-          rating: restaurant.rating || 4.0,
-          reviews: restaurant.reviews || 0,
-          priceLevel: restaurant.price || '$',
-          cuisine: cuisine || restaurant.type || 'International',
-          address: restaurant.address || location,
-          hours: restaurant.hours || 'Hours vary',
-          phone: restaurant.phone,
-          website: restaurant.website,
-          image: images.length > 0 ? images[0].url : null,
-          mapUrl: mapUrl,
-          description: restaurant.description || `${cuisine || 'Great'} restaurant in ${location}`,
-          type: 'Restaurant',
-          dineIn: restaurant.dine_in !== false,
-          takeout: restaurant.takeout !== false,
-          delivery: restaurant.delivery !== false
-        };
-      })
-    );
-    return { data: restaurantsWithImages };
+    console.log(`✅ Found ${restaurants.length} restaurants`);
+    return { data: restaurants };
 
   } catch (error) {
     console.error('❌ SerpApi Restaurants error:', error.message);
@@ -412,8 +382,62 @@ export async function searchRestaurants({
   }
 }
 
-// 🌤️ WEATHER - with automatic coordinate detection
-export async function getWeather({ location }) {
+// 📍 POI (Points of Interest) - Enhanced
+export async function searchPOI({ location }) {
+  try {
+    console.log('📍 Searching POIs with SerpApi Google Local...');
+    
+    const params = new URLSearchParams({
+      engine: 'google_local',
+      q: `attractions things to do in ${location}`,
+      hl: 'en',
+      api_key: SERPAPI_KEY
+    });
+
+    const res = await fetch(`${BASE_URL}?${params}`);
+    const data = await res.json();
+
+    if (data.error) {
+      console.error('❌ SerpApi error:', data.error);
+      return { data: [] };
+    }
+
+    const pois = (data.local_results || []).slice(0, 10).map(poi => ({
+      title: poi.title,
+      name: poi.title,
+      rating: poi.rating || 0,
+      reviews: poi.reviews || 0,
+      reviews_original: poi.reviews_original || '',
+      type: poi.type || 'Attraction',
+      price: poi.price || poi.ticket_prices?.[0]?.price || 'Free',
+      ticket_prices: poi.ticket_prices || [],
+      address: poi.address || '',
+      location: poi.address || '',
+      hours: poi.hours || poi.operating_hours?.Monday || 'Check website',
+      operating_hours: poi.operating_hours || {},
+      description: poi.description || poi.snippet || '',
+      snippet: poi.snippet || '',
+      website: poi.website || poi.link || '#',
+      link: poi.link || '#',
+      thumbnail: poi.thumbnail || '',
+      image: poi.thumbnail || '',
+      gps_coordinates: poi.gps_coordinates || null,
+      links: poi.links || {},
+      place_id: poi.place_id || '',
+      phone: poi.phone || ''
+    }));
+
+    console.log(`✅ Found ${pois.length} POIs`);
+    return { data: pois };
+
+  } catch (error) {
+    console.error('❌ SerpApi POI error:', error.message);
+    return { data: [] };
+  }
+}
+
+// 🌤️ WEATHER - Unchanged but included for completeness
+export async function getWeather({ location, days = 10 }) {
   try {
     console.log('🌤️ Getting weather forecast...');
     
@@ -424,15 +448,13 @@ export async function getWeather({ location }) {
       return { data: [] };
     }
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.lat}&longitude=${coordinates.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode&timezone=auto&forecast_days=10`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${coordinates.lat}&longitude=${coordinates.lon}&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,weathercode&timezone=auto&forecast_days=${days}`;
     
     const res = await fetch(url);
     const data = await res.json();
 
-    console.log('📊 Full Weather Response:', JSON.stringify(data, null, 2));
-
     if (!data.daily) {
-      console.error('❌ No daily weather data found');
+      console.error('❌ No weather data found');
       return { data: [] };
     }
 
@@ -453,7 +475,7 @@ export async function getWeather({ location }) {
   }
 }
 
-// Helper function to get weather condition
+// Helper function for weather conditions
 function getWeatherCondition(code) {
   const conditions = {
     0: 'Clear sky',
@@ -474,49 +496,4 @@ function getWeatherCondition(code) {
     95: 'Thunderstorm'
   };
   return conditions[code] || 'Clear sky';
-}
-
-// 🖼️ Enhanced image search for all types
-async function getImages(query, type = 'general') {
-  try {
-    const imageQuery = type === 'restaurant' ? 
-      `${query} interior exterior food` :
-      type === 'hotel' ? 
-      `${query} exterior lobby room` :
-      type === 'poi' ?
-      `${query} tourist attraction landmark` :
-      query;
-
-    const params = new URLSearchParams({
-      engine: 'google_images',
-      q: imageQuery,
-      num: 5,
-      safe: 'active',
-      api_key: SERPAPI_KEY
-    });
-
-    const res = await fetch(`${BASE_URL}?${params}`);
-    const data = await res.json();
-
-    if (data.images_results && data.images_results.length > 0) {
-      const goodImages = data.images_results.filter(img => 
-        img.original && 
-        img.original.startsWith('http') &&
-        !img.original.includes('favicon') &&
-        !img.original.includes('logo') &&
-        !img.original.includes('icon')
-      );
-      
-      return goodImages.slice(0, 3).map(img => ({
-        url: img.original,
-        thumbnail: img.thumbnail,
-        title: img.title
-      }));
-    }
-
-    return [];
-  } catch (error) {
-    console.error('Error getting images:', error.message);
-    return [];
-  }
 }

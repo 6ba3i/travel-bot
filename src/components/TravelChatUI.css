@@ -373,3 +373,320 @@ input:focus-visible {
     display: none;
   }
 }
+ .flights-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;  /* Space between flight cards */
+  padding: 1rem;
+  width: 100%;
+  max-width: 1200px;  /* Max container width */
+  margin: 0 auto;
+}
+
+/* Individual flight widget - FULL WIDTH */
+.flight-widget,
+[class*="flight-card"],
+[class*="FlightCard"] {
+  width: 100% !important;  /* Full width of container */
+  min-height: 180px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;  /* Space between cards */
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e5e7eb;
+  transition: all 0.2s ease;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+}
+
+.flight-widget:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+  border-color: #6366f1;
+}
+
+/* Flight header section */
+.flight-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #f3f4f6;
+}
+
+.flight-airline {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: #1f2937;
+}
+
+.flight-price {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #059669;
+  background: linear-gradient(135deg, #10b981, #059669);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Flight route section - EXPANDED WIDTH */
+.flight-route {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;  /* Equal space for departure and arrival */
+  align-items: center;
+  gap: 2rem;  /* More space between elements */
+  margin: 1.5rem 0;
+  padding: 0 1rem;
+}
+
+.flight-departure,
+.flight-arrival {
+  text-align: center;
+}
+
+.airport-code {
+  font-size: 2rem;  /* Larger airport codes */
+  font-weight: 700;
+  color: #374151;
+  margin-bottom: 0.5rem;
+  letter-spacing: 0.05em;
+}
+
+.airport-time {
+  font-size: 1.25rem;  /* Larger time display */
+  font-weight: 500;
+  color: #6b7280;
+}
+
+.flight-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2rem;
+  color: #9ca3af;
+  position: relative;
+}
+
+.flight-arrow::before {
+  content: '→';
+  display: block;
+}
+
+/* Flight details section */
+.flight-details {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);  /* 4 columns for details */
+  gap: 1.5rem;
+  margin-top: 1.5rem;
+  padding: 1.5rem;
+  background: #f9fafb;
+  border-radius: 8px;
+}
+
+.flight-detail {
+  text-align: center;
+}
+
+.detail-label {
+  font-size: 0.85rem;
+  color: #9ca3af;
+  text-transform: uppercase;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.5rem;
+}
+
+.detail-value {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Book button */
+.flight-book-btn {
+  width: 100%;
+  margin-top: 1.5rem;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 1.1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.flight-book-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
+  background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%);
+}
+
+/* ============================================
+   HOTEL WIDGETS - GRID LAYOUT
+   ============================================ */
+
+.hotels-container {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 1.5rem;
+  padding: 1rem;
+  width: 100%;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.hotel-widget,
+[class*="hotel-card"],
+[class*="HotelCard"] {
+  background: white;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.2s ease;
+  border: 1px solid #e5e7eb;
+}
+
+.hotel-widget:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+/* Hotel image - HIGH QUALITY */
+.hotel-image,
+.hotel-widget img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+  image-rendering: -webkit-optimize-contrast;  /* Better image quality */
+  image-rendering: crisp-edges;
+}
+
+.hotel-details {
+  padding: 1.25rem;
+}
+
+.hotel-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1f2937;
+  margin-bottom: 0.5rem;
+}
+
+.hotel-price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #059669;
+  margin-bottom: 0.75rem;
+}
+
+.hotel-rating {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #f59e0b;
+  margin-bottom: 1rem;
+}
+
+/* ============================================
+   RESPONSIVE DESIGN
+   ============================================ */
+
+/* Mobile devices */
+@media (max-width: 768px) {
+  .flights-container {
+    padding: 0.5rem;
+  }
+  
+  .flight-widget {
+    padding: 1rem;
+    margin-bottom: 1rem;
+  }
+  
+  .flight-route {
+    gap: 1rem;
+  }
+  
+  .airport-code {
+    font-size: 1.5rem;
+  }
+  
+  .airport-time {
+    font-size: 1rem;
+  }
+  
+  .flight-details {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem;
+  }
+  
+  .hotels-container {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* Tablets */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .hotels-container {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* Large screens */
+@media (min-width: 1025px) {
+  .hotels-container {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+/* ============================================
+   HIGH QUALITY IMAGES FIX
+   ============================================ */
+
+/* Force high quality rendering for all widget images */
+.hotel-widget img,
+.poi-widget img,
+.restaurant-widget img,
+[class*="widget"] img {
+  image-rendering: -webkit-optimize-contrast;
+  image-rendering: crisp-edges;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  backface-visibility: hidden;
+  transform: translateZ(0);
+}
+
+/* Prevent image blur on scale */
+img {
+  will-change: transform;
+  transform: scale(1);
+}
+
+/* ============================================
+   SPACING BETWEEN ALL WIDGETS
+   ============================================ */
+
+/* Ensure all widget types have proper spacing */
+.flight-widget + .flight-widget,
+.hotel-widget + .hotel-widget,
+.poi-widget + .poi-widget,
+.restaurant-widget + .restaurant-widget {
+  margin-top: 1.5rem;
+}
+
+/* Widget container spacing */
+[class*="widget-container"] {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  width: 100%;
+}
