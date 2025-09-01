@@ -1,4 +1,3 @@
-// src/lib/translations.ts
 export const TRANSLATIONS = {
   en: {
     languageName: 'English',

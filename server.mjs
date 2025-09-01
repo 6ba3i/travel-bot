@@ -628,5 +628,4 @@ app.listen(PORT, () => {
   console.log(`🤖 Using DeepSeek API (deepseek-coder for speed)`);
   console.log(`🔍 SerpAPI integration active`);
   console.log(`💾 Session memory enabled`);
-  console.log(`🖼️ High-quality images enabled`);
 });
