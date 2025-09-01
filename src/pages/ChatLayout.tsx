@@ -1,9 +1,8 @@
+import React from 'react';
 import TravelChatUI from '../components/TravelChatUI';
 
-export default function ChatLayout() {
-  return (
-    <div className="h-screen">
-      <TravelChatUI />
-    </div>
-  );
-}
+const ChatLayout: React.FC = () => {
+  return <TravelChatUI />;
+};
+
+export default ChatLayout;

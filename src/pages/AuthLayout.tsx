@@ -1,29 +1,23 @@
-import BackgroundGrid from '../components/BackgroundGrid';
+import React, { ReactNode } from 'react';
 
-export default function AuthLayout({
-  title,
-  children
-}: {
+interface AuthLayoutProps {
   title: string;
-  children: React.ReactNode;
-}) {
-  return (
-    <div className="relative min-h-screen flex items-center justify-center">
-      <BackgroundGrid />
+  children: ReactNode;
+}
 
-      <div
-        className="
-          w-full max-w-md z-10
-          rounded-2xl border border-white/20
-          bg-white/20 backdrop-blur-lg shadow-2xl
-          p-10 space-y-6
-        "
-      >
-        <h1 className="text-3xl font-semibold text-center text-white">
-          {title}
-        </h1>
-        {children}
+const AuthLayout: React.FC<AuthLayoutProps> = ({ title, children }) => {
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-900 to-indigo-900 flex items-center justify-center p-4">
+      <div className="w-full max-w-md">
+        <div className="bg-gray-900/50 backdrop-blur-xl rounded-2xl shadow-2xl border border-gray-800/50 p-8">
+          <h2 className="text-3xl font-bold text-white text-center mb-8">{title}</h2>
+          <div className="space-y-4">
+            {children}
+          </div>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default AuthLayout;

@@ -1,7 +1,8 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import Router from './Router';          // <— import the router
+import Router from './Router';
 import './index.css';
+import './components/TravelChatUI.css';
 
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>

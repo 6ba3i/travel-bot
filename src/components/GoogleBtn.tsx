@@ -1,42 +1,44 @@
-// src/components/GoogleBtn.tsx
+import React from 'react';
 import { signInWithPopup } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 
 const GoogleIcon = () => (
-  /* 28 px square instead of 20 px (w-7 h-7) */
   <svg
-    viewBox="240 7235 30 30"
-    className="w-6 h-6"          /* ← change size here */
+    viewBox="0 0 24 24"
+    className="w-5 h-5"
     fill="currentColor"
-    aria-hidden
+    aria-hidden="true"
   >
-    <path d="M263.821537,7247.00386 L254.211298,7247.00386 C254.211298,7248.0033 254.211298,7250.00218 254.205172,7251.00161 L259.774046,7251.00161 C259.560644,7252.00105 258.804036,7253.40026 257.734984,7254.10487 C257.733963,7254.10387 257.732942,7254.11086 257.7309,7254.10986 C256.309581,7255.04834 254.43389,7255.26122 253.041161,7254.98137 C250.85813,7254.54762 249.130492,7252.96451 248.429023,7250.95364 C248.433107,7250.95064 248.43617,7250.92266 248.439233,7250.92066 C248.000176,7249.67336 248.000176,7248.0033 248.439233,7247.00386 L248.438212,7247.00386 C249.003881,7245.1669 250.783592,7243.49084 252.969687,7243.0321 C254.727956,7242.65931 256.71188,7243.06308 258.170978,7244.42831 C258.36498,7244.23842 260.856372,7241.80579 261.043226,7241.6079 C256.0584,7237.09344 248.076756,7238.68155 245.090149,7244.51127 L245.089128,7244.51127 C245.089128,7244.51127 245.090149,7244.51127 245.084023,7244.52226 L245.084023,7244.52226 C243.606545,7247.38565 243.667809,7250.75975 245.094233,7253.48622 C245.090149,7253.48921 245.087086,7253.49121 245.084023,7253.49421 C246.376687,7256.0028 248.729215,7257.92672 251.563684,7258.6593 C254.574796,7259.44886 258.406843,7258.90916 260.973794,7256.58747 C260.974815,7256.58847 260.975836,7256.58947 260.976857,7256.59047 C263.15172,7254.63157 264.505648,7251.29445 263.821537,7247.00386"/>
+    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
   </svg>
 );
 
+const GoogleBtn: React.FC = () => {
+  const navigate = useNavigate();
 
-
-export default function GoogleBtn() {
-  const nav = useNavigate();
-
-  async function login() {
-    await signInWithPopup(auth, googleProvider);
-    nav('/chat', { replace: true });
-  }
+  const handleGoogleSignIn = async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      navigate('/chat', { replace: true });
+    } catch (error) {
+      console.error('Error signing in with Google:', error);
+    }
+  };
 
   return (
     <button
       type="button"
-      onClick={login}
-      className="
-        w-full flex items-center justify-center gap-3
-        border border-white/30 rounded-lg py-2
-        bg-white/10 hover:bg-white/20 transition text-white
-      "
+      onClick={handleGoogleSignIn}
+      className="w-full flex items-center justify-center gap-3 px-4 py-3 border border-gray-700/50 rounded-lg bg-gray-800/50 hover:bg-gray-700/50 transition-colors text-white"
     >
       <GoogleIcon />
-      <span className="font-medium tracking-wide">Continue with Google</span>
+      <span className="font-medium">Continue with Google</span>
     </button>
   );
-}
+};
+
+export default GoogleBtn;
