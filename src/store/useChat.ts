@@ -36,7 +36,7 @@ export const useChatStore = create<ChatStore>()(
       loading: false,
       
       send: async (message: string, language: string = 'en') => {
-        const { activeId, conversations } = get();
+        const { activeId } = get();
         
         if (!activeId) {
           console.error('No active conversation');
@@ -60,7 +60,7 @@ export const useChatStore = create<ChatStore>()(
         }));
         
         try {
-          // Call the API
+          // Call the API with sessionId for context
           const response = await fetch('/api/chat', {
             method: 'POST',
             headers: {
@@ -68,9 +68,8 @@ export const useChatStore = create<ChatStore>()(
             },
             body: JSON.stringify({
               message,
-              language,
-              conversationId: activeId,
-              history: conversations.find(c => c.id === activeId)?.messages || []
+              sessionId: activeId, // Use conversation ID as session ID
+              language
             }),
           });
           
@@ -80,10 +79,13 @@ export const useChatStore = create<ChatStore>()(
           
           const data = await response.json();
           
+          // FIXED: Server sends { response: content }, not choices array
+          const assistantContent = data.response || 'Sorry, I could not process your request.';
+          
           // Add assistant message
           const assistantMessage: Message = {
             role: 'assistant',
-            content: data.choices?.[0]?.message?.content || 'Sorry, I could not process your request.',
+            content: assistantContent,
             timestamp: Date.now()
           };
           
