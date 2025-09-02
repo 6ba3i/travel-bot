@@ -1,5 +1,7 @@
-import { concurrently } from 'concurrently';
+import { spawn } from 'child_process';
+import { platform } from 'os';
 
+// Remove proxy environment variables that can cause issues
 const proxyVars = [
   'http_proxy',
   'https_proxy',
@@ -21,18 +23,24 @@ if (cleaned) {
   console.log('[dev] Removed HTTP proxy environment variables to avoid connection errors.');
 }
 
-const commands = [
-  { command: 'vite', name: 'vite', prefixColor: 'cyan' },
-  {
-    command: 'nodemon --loader ts-node/esm server.mjs',
-    name: 'server',
-    prefixColor: 'gray',
-    env: {
-      TS_NODE_TRANSPILE_ONLY: 'true',
-      TS_NODE_PROJECT: 'tsconfig.node.json'
-    }
-  }
-];
+// Use concurrently to run both server and client
+const isWindows = platform() === 'win32';
+const npm = isWindows ? 'npm.cmd' : 'npm';
 
-const { result } = concurrently(commands, { prefix: 'name' });
-result.catch(() => process.exit(1));
+console.log('🚀 Starting TravelBot Development Server...\n');
+
+// Run both server and client
+const proc = spawn(npm, ['run', 'start'], {
+  stdio: 'inherit',
+  shell: true,
+  env: process.env
+});
+
+proc.on('error', (err) => {
+  console.error('Failed to start development server:', err);
+  process.exit(1);
+});
+
+proc.on('exit', (code) => {
+  process.exit(code || 0);
+});
